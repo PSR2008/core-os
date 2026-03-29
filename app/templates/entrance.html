@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CORE OS — The next-generation gamified productivity OS. Tasks, habits, finances, and wellness unified in one futuristic command center.">
+  <title>CORE OS — Command Your Life</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700;900&family=Exo+2:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+  <script src="{{ url_for('static', filename='motion.js') }}" defer></script>
+  <style>
+/* ─────────────────────────────────────────────────────────────
+   CORE OS — LANDING PAGE
+   Futuristic SaaS. Every color from the app palette.
+───────────────────────────────────────────────────────────── */
+:root {
+  --bg:       #020408;
+  --bg2:      #060c18;
+  --accent:   #6366f1;
+  --accent2:  #22d3ee;
+  --gold:     #fbbf24;
+  --success:  #10b981;
+  --danger:   #f43f5e;
+  --text:     #e2e8f0;
+  --dim:      #64748b;
+  --border:   rgba(99,102,241,.18);
+  --card-bg:  rgba(8,14,28,.85);
+  --nav-h:    68px;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+body {
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Exo 2',sans-serif;
+  overflow-x:hidden;
+  line-height:1.6;
+}
+
+/* ── SCROLLBAR ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--accent); border-radius:2px; }
+
+/* ── THREE.JS CANVAS ────────────────────────────────────────── */
+#bg-canvas {
+  position:fixed; top:0; left:0;
+  width:100vw; height:100vh;
+  z-index:0; pointer-events:none;
+}
+.scanline {
+  position:fixed; inset:0;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.045),rgba(0,0,0,.045) 1px,transparent 1px,transparent 3px);
+  pointer-events:none; z-index:1;
+}
+
+/* ── NAVBAR ─────────────────────────────────────────────────── */
+.nav {
+  position:fixed; top:0; left:0; right:0;
+  height:var(--nav-h);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 clamp(1.5rem,5vw,4rem);
+  z-index:1000;
+  transition:background .35s ease, box-shadow .35s ease, border-color .35s ease;
+  border-bottom:1px solid transparent;
+}
+.nav.scrolled {
+  background:rgba(2,4,8,.92);
+  backdrop-filter:blur(20px);
+  border-bottom-color:var(--border);
+  box-shadow:0 4px 40px rgba(0,0,0,.5);
+}
+.nav-logo {
+  font-family:'Rajdhani',sans-serif;
+  font-size:1.45rem; font-weight:900;
+  letter-spacing:4px; color:var(--text);
+  text-decoration:none;
+  display:flex; align-items:center; gap:.35rem;
+}
+.nav-logo span { color:var(--accent2); }
+.nav-logo-dot {
+  width:7px; height:7px; border-radius:50%;
+  background:var(--accent2);
+  box-shadow:0 0 8px var(--accent2);
+  animation:dot-pulse 2s ease-in-out infinite;
+}
+@keyframes dot-pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+.nav-links {
+  display:flex; align-items:center;
+  gap:clamp(.8rem,2vw,2.2rem);
+  list-style:none;
+}
+.nav-links a {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.68rem; letter-spacing:2px;
+  color:var(--dim); text-decoration:none;
+  transition:color .2s ease;
+  position:relative;
+}
+.nav-links a::after {
+  content:''; position:absolute;
+  bottom:-3px; left:0; right:100%;
+  height:1px; background:var(--accent2);
+  transition:right .25s ease;
+}
+.nav-links a:hover { color:var(--text); }
+.nav-links a:hover::after { right:0; }
+
+.nav-ctas { display:flex; align-items:center; gap:.8rem; }
+.nav-signin {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.68rem; letter-spacing:2px;
+  color:var(--dim); text-decoration:none;
+  padding:.45rem 1rem;
+  border:1px solid transparent;
+  border-radius:8px;
+  transition:.25s ease;
+}
+.nav-signin:hover { color:var(--text); border-color:var(--border); }
+.nav-get-started {
+  font-family:'Rajdhani',sans-serif;
+  font-weight:700; font-size:.9rem; letter-spacing:2px;
+  color:#fff; text-decoration:none;
+  padding:.5rem 1.4rem;
+  background:linear-gradient(135deg,var(--accent),#4f46e5);
+  border-radius:8px;
+  border:1px solid transparent;
+  transition:.25s cubic-bezier(.22,1,.36,1);
+  box-shadow:0 0 20px rgba(99,102,241,.25);
+}
+.nav-get-started:hover {
+  transform:translateY(-2px);
+  box-shadow:0 0 35px rgba(99,102,241,.5);
+}
+
+/* Hamburger */
+.nav-hamburger {
+  display:none; flex-direction:column; gap:5px;
+  background:none; border:none; cursor:pointer; padding:4px;
+}
+.nav-hamburger span {
+  display:block; width:24px; height:2px;
+  background:var(--dim); border-radius:2px;
+  transition:.3s ease;
+}
+.nav-mobile-menu {
+  display:none; position:fixed; top:var(--nav-h); left:0; right:0;
+  background:rgba(2,4,8,.97);
+  border-bottom:1px solid var(--border);
+  padding:1.5rem 2rem;
+  flex-direction:column; gap:1rem;
+  z-index:999;
+  backdrop-filter:blur(20px);
+}
+.nav-mobile-menu a {
+  font-family:'Share Tech Mono',monospace; font-size:.75rem;
+  letter-spacing:2px; color:var(--dim); text-decoration:none;
+  padding:.5rem 0; border-bottom:1px solid rgba(255,255,255,.04);
+  transition:color .2s;
+}
+.nav-mobile-menu a:hover { color:var(--text); }
+.nav-mobile-menu .mobile-cta {
+  margin-top:.5rem; padding:.8rem 1.5rem; text-align:center;
+  background:linear-gradient(135deg,var(--accent),#4f46e5);
+  border-radius:10px; color:#fff;
+  font-family:'Rajdhani',sans-serif; font-weight:700; letter-spacing:2px;
+}
+
+/* ── HERO ────────────────────────────────────────────────────── */
+.hero {
+  min-height:100vh;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  text-align:center;
+  padding:calc(var(--nav-h) + 4rem) 2rem 6rem;
+  position:relative; z-index:5;
+}
+.hero-eyebrow {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.68rem; letter-spacing:4px; color:var(--accent2);
+  margin-bottom:1.5rem;
+  opacity:0; animation:fadeUp .6s ease .3s forwards;
+  display:flex; align-items:center; gap:.7rem;
+}
+.hero-eyebrow::before,.hero-eyebrow::after {
+  content:''; flex:1; max-width:60px; height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent2));
+}
+.hero-eyebrow::after { background:linear-gradient(90deg,var(--accent2),transparent); }
+
+.hero-title {
+  font-family:'Rajdhani',sans-serif;
+  font-size:clamp(3.8rem,11vw,9rem);
+  font-weight:900; line-height:.9;
+  letter-spacing:-2px;
+  background:linear-gradient(135deg,#e2e8f0 0%,#818cf8 35%,#22d3ee 65%,#fbbf24 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+  filter:drop-shadow(0 0 50px rgba(34,211,238,.25));
+  margin-bottom:1rem;
+  opacity:0; animation:fadeUp .8s ease .55s forwards;
+}
+.hero-title-sub {
+  font-family:'Share Tech Mono',monospace;
+  font-size:clamp(.7rem,1.5vw,.9rem);
+  letter-spacing:6px; color:var(--dim);
+  margin-bottom:2.2rem;
+  opacity:0; animation:fadeUp .6s ease .8s forwards;
+}
+.hero-desc {
+  max-width:580px; font-size:clamp(1rem,2vw,1.18rem);
+  color:#94a3b8; line-height:1.85;
+  margin:0 auto 3rem;
+  opacity:0; animation:fadeUp .6s ease 1s forwards;
+}
+.hero-ctas {
+  display:flex; gap:1.2rem; justify-content:center; flex-wrap:wrap;
+  margin-bottom:4rem;
+  opacity:0; animation:fadeUp .6s ease 1.2s forwards;
+}
+
+/* Primary CTA */
+.cta-primary {
+  display:inline-flex; align-items:center; gap:.6rem;
+  padding:1rem 2.5rem;
+  background:linear-gradient(135deg,var(--accent),#4f46e5);
+  color:#fff; text-decoration:none; border-radius:12px;
+  font-family:'Rajdhani',sans-serif; font-weight:700;
+  font-size:1.05rem; letter-spacing:2px;
+  box-shadow:0 0 35px rgba(99,102,241,.4),0 10px 30px rgba(0,0,0,.4);
+  transition:.3s cubic-bezier(.34,1.56,.64,1);
+  position:relative; overflow:hidden;
+}
+.cta-primary::before {
+  content:''; position:absolute;
+  top:0; left:-100%; width:100%; height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);
+  transition:left .5s;
+}
+.cta-primary:hover::before { left:100%; }
+.cta-primary:hover { transform:translateY(-4px) scale(1.03); box-shadow:0 0 55px rgba(99,102,241,.6),0 18px 40px rgba(0,0,0,.5); }
+
+/* Secondary CTA */
+.cta-secondary {
+  display:inline-flex; align-items:center; gap:.6rem;
+  padding:1rem 2rem;
+  background:rgba(255,255,255,.03);
+  color:#94a3b8; text-decoration:none;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  font-family:'Rajdhani',sans-serif; font-weight:700;
+  font-size:1.05rem; letter-spacing:2px;
+  transition:.3s ease;
+}
+.cta-secondary:hover {
+  border-color:var(--accent); color:#818cf8;
+  background:rgba(99,102,241,.08);
+  transform:translateY(-3px);
+}
+
+/* Hero trust badges */
+.hero-badges {
+  display:flex; flex-wrap:wrap; gap:.7rem; justify-content:center;
+  opacity:0; animation:fadeUp .6s ease 1.5s forwards;
+}
+.hero-badge {
+  font-family:'Share Tech Mono',monospace; font-size:.6rem;
+  letter-spacing:1.5px; color:var(--dim);
+  padding:.35rem .9rem;
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:20px;
+  background:rgba(255,255,255,.02);
+  display:flex; align-items:center; gap:.4rem;
+}
+
+/* Hero scroll hint */
+.scroll-hint {
+  position:absolute; bottom:2.5rem; left:50%; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  opacity:0; animation:fadeUp .6s ease 2s forwards;
+}
+.scroll-hint span { font-family:'Share Tech Mono',monospace; font-size:.55rem; color:var(--dim); letter-spacing:3px; }
+.scroll-arrow {
+  width:1px; height:42px;
+  background:linear-gradient(to bottom,var(--accent),transparent);
+  animation:scrollPulse 2s ease-in-out infinite;
+}
+
+/* ── SECTION COMMONS ─────────────────────────────────────────── */
+section { position:relative; z-index:5; }
+.section-inner {
+  max-width:1100px; margin:0 auto;
+  padding:6rem clamp(1.5rem,5vw,3rem);
+}
+.section-inner.wide { max-width:1280px; }
+.sec-label {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.62rem; letter-spacing:4px; color:var(--accent2);
+  margin-bottom:.8rem;
+}
+.sec-title {
+  font-family:'Rajdhani',sans-serif;
+  font-size:clamp(2rem,5vw,3.2rem); font-weight:700;
+  line-height:1.1; margin-bottom:1rem;
+}
+.sec-title em { font-style:normal; color:var(--accent2); }
+.sec-sub {
+  font-size:1.05rem; color:#94a3b8; max-width:540px;
+  line-height:1.8; margin-bottom:3.5rem;
+}
+
+/* ── FEATURES GRID ───────────────────────────────────────────── */
+.features-section { background:rgba(3,4,10,.4); }
+.features-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:1.5rem;
+}
+.feature-card {
+  background:var(--card-bg);
+  border:1px solid var(--border);
+  border-radius:16px; padding:2rem;
+  transition:.3s cubic-bezier(.22,1,.36,1);
+  position:relative; overflow:hidden;
+  backdrop-filter:blur(12px);
+}
+.feature-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg,transparent,var(--border),transparent);
+}
+.feature-card:hover {
+  border-color:rgba(99,102,241,.38);
+  transform:translateY(-5px);
+  box-shadow:0 20px 50px rgba(0,0,0,.55),0 0 25px rgba(99,102,241,.08);
+}
+.fc-icon { font-size:2rem; margin-bottom:1rem; display:block; }
+.fc-title {
+  font-family:'Rajdhani',sans-serif; font-size:1.2rem; font-weight:700;
+  margin-bottom:.6rem; color:var(--text);
+}
+.fc-desc { font-size:.88rem; color:var(--dim); line-height:1.75; }
+.fc-tag {
+  display:inline-block; margin-top:1rem;
+  font-family:'Share Tech Mono',monospace; font-size:.58rem;
+  letter-spacing:2px; color:var(--accent2);
+  padding:.25rem .7rem;
+  background:rgba(34,211,238,.08);
+  border:1px solid rgba(34,211,238,.2);
+  border-radius:20px;
+}
+
+/* ── SHOWCASE DASHBOARD PREVIEW ─────────────────────────────── */
+.showcase-section { overflow:hidden; }
+.showcase-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:4rem; align-items:center;
+}
+.showcase-grid.reverse { direction:rtl; }
+.showcase-grid.reverse > * { direction:ltr; }
+.showcase-text { }
+.showcase-visual {
+  position:relative;
+  border-radius:20px; overflow:hidden;
+}
+.ui-mock {
+  background:rgba(5,9,20,.95);
+  border:1px solid var(--border);
+  border-radius:16px; padding:1.5rem;
+  backdrop-filter:blur(8px);
+  box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 40px rgba(99,102,241,.08);
+  position:relative;
+}
+.ui-mock::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),var(--accent2),transparent);
+}
+/* Mock window dots */
+.ui-mock-dots {
+  display:flex; gap:6px; margin-bottom:1rem;
+}
+.ui-mock-dots span {
+  width:10px; height:10px; border-radius:50%;
+}
+.ui-mock-dots span:nth-child(1) { background:#f43f5e; }
+.ui-mock-dots span:nth-child(2) { background:#fbbf24; }
+.ui-mock-dots span:nth-child(3) { background:#10b981; }
+
+/* ── JOURNEY / STORYTELLING ──────────────────────────────────── */
+.journey-section { background:rgba(3,4,10,.5); }
+.journey-steps {
+  display:grid; grid-template-columns:repeat(5,1fr); gap:0;
+  position:relative; margin-top:3rem;
+}
+.journey-steps::before {
+  content:''; position:absolute;
+  top:40px; left:10%; right:10%;
+  height:1px;
+  background:linear-gradient(90deg,var(--danger),var(--gold),var(--accent),var(--accent2),var(--success));
+  z-index:0;
+}
+.journey-step {
+  display:flex; flex-direction:column; align-items:center;
+  text-align:center; padding:0 .5rem;
+  position:relative; z-index:1;
+}
+.step-node {
+  width:80px; height:80px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.6rem; margin-bottom:1.2rem;
+  position:relative; z-index:1;
+  border:2px solid;
+  background:var(--bg2);
+  transition:.3s ease;
+}
+.step-node:hover { transform:scale(1.1); }
+.step-num {
+  position:absolute; top:-6px; right:-6px;
+  width:22px; height:22px; border-radius:50%;
+  background:var(--bg);
+  border:1px solid currentColor;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.58rem;
+  display:flex; align-items:center; justify-content:center;
+}
+.step-name {
+  font-family:'Rajdhani',sans-serif;
+  font-size:1rem; font-weight:700; letter-spacing:1px;
+  margin-bottom:.4rem;
+}
+.step-desc {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.58rem; color:var(--dim);
+  line-height:1.7;
+}
+
+/* ── STATS / SOCIAL PROOF ────────────────────────────────────── */
+.proof-section { }
+.stats-grid {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:1.5rem; margin-bottom:4rem;
+}
+.stat-box {
+  background:var(--card-bg);
+  border:1px solid var(--border);
+  border-radius:16px; padding:2rem 1.5rem; text-align:center;
+  backdrop-filter:blur(8px);
+  transition:.3s ease;
+}
+.stat-box:hover { border-color:rgba(99,102,241,.38); transform:translateY(-4px); }
+.stat-box-num {
+  font-family:'Rajdhani',sans-serif;
+  font-size:3rem; font-weight:700; line-height:1;
+  background:linear-gradient(135deg,var(--accent2),var(--accent));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.stat-box-lbl {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.6rem; letter-spacing:2px; color:var(--dim);
+  margin-top:.5rem;
+}
+
+/* Testimonials */
+.testimonials-grid {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem;
+}
+.testi-card {
+  background:var(--card-bg);
+  border:1px solid var(--border);
+  border-radius:16px; padding:1.8rem;
+  backdrop-filter:blur(8px);
+  transition:.3s ease;
+}
+.testi-card:hover { border-color:rgba(99,102,241,.3); transform:translateY(-3px); }
+.testi-stars {
+  color:var(--gold); font-size:1rem; letter-spacing:2px; margin-bottom:1rem;
+}
+.testi-text {
+  font-size:.9rem; color:#94a3b8; line-height:1.8;
+  margin-bottom:1.2rem;
+  font-style:italic;
+}
+.testi-author {
+  display:flex; align-items:center; gap:.8rem;
+}
+.testi-avatar {
+  width:36px; height:36px; border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Rajdhani',sans-serif; font-weight:700; font-size:.9rem; color:#fff;
+  flex-shrink:0;
+}
+.testi-name {
+  font-family:'Rajdhani',sans-serif; font-weight:700; font-size:.9rem;
+}
+.testi-role {
+  font-family:'Share Tech Mono',monospace; font-size:.58rem; color:var(--dim);
+}
+
+/* ── FINAL CTA ───────────────────────────────────────────────── */
+.final-cta-section { text-align:center; overflow:hidden; }
+.final-cta-glow {
+  position:absolute; width:700px; height:700px;
+  top:50%; left:50%; transform:translate(-50%,-50%);
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(99,102,241,.07) 0%,transparent 70%);
+  pointer-events:none;
+}
+.final-cta-section .sec-title {
+  font-size:clamp(2.2rem,6vw,4rem);
+  margin-bottom:1.5rem;
+}
+.final-cta-section .sec-sub { max-width:580px; margin:0 auto 3rem; }
+
+/* ── FOOTER ─────────────────────────────────────────────────── */
+footer {
+  border-top:1px solid var(--border);
+  background:rgba(2,4,8,.95);
+  position:relative; z-index:5;
+  padding:4rem clamp(1.5rem,5vw,4rem) 2rem;
+}
+.footer-grid {
+  display:grid; grid-template-columns:2fr 1fr 1fr 1fr;
+  gap:3rem; max-width:1100px; margin:0 auto;
+  padding-bottom:3rem;
+  border-bottom:1px solid var(--border);
+}
+.footer-brand .footer-logo {
+  font-family:'Rajdhani',sans-serif; font-size:1.4rem; font-weight:900;
+  letter-spacing:4px; color:var(--text); margin-bottom:1rem;
+  display:block;
+}
+.footer-brand .footer-logo span { color:var(--accent2); }
+.footer-brand p {
+  font-size:.85rem; color:var(--dim); line-height:1.75;
+  max-width:260px;
+}
+.footer-col-title {
+  font-family:'Share Tech Mono',monospace; font-size:.62rem;
+  letter-spacing:3px; color:var(--accent2); margin-bottom:1.2rem;
+}
+.footer-links { list-style:none; }
+.footer-links li { margin-bottom:.6rem; }
+.footer-links a {
+  font-size:.88rem; color:var(--dim);
+  text-decoration:none; transition:color .2s;
+}
+.footer-links a:hover { color:var(--text); }
+.footer-bottom {
+  max-width:1100px; margin:2rem auto 0;
+  display:flex; justify-content:space-between; align-items:center;
+  flex-wrap:wrap; gap:1rem;
+}
+.footer-copy {
+  font-family:'Share Tech Mono',monospace; font-size:.6rem;
+  color:var(--dim); letter-spacing:1px;
+}
+.footer-status {
+  display:flex; gap:1.5rem;
+  font-family:'Share Tech Mono',monospace; font-size:.6rem; color:var(--dim);
+}
+.footer-status .dot { color:var(--success); }
+
+/* ── ANIMATIONS ─────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(24px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+@keyframes scrollPulse {
+  0%,100%{ opacity:.3; transform:scaleY(1); }
+  50%    { opacity:1;  transform:scaleY(1.2); }
+}
+
+/* scroll-reveal for landing page */
+.reveal {
+  opacity:0;
+  transform:translateY(30px);
+  transition:opacity .65s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1);
+}
+.reveal.visible { opacity:1; transform:none; }
+.reveal-d1 { transition-delay:.08s; }
+.reveal-d2 { transition-delay:.16s; }
+.reveal-d3 { transition-delay:.24s; }
+.reveal-d4 { transition-delay:.32s; }
+.reveal-d5 { transition-delay:.40s; }
+
+/* ── RESPONSIVE ─────────────────────────────────────────────── */
+@media(max-width:1024px) {
+  .showcase-grid { grid-template-columns:1fr; gap:2.5rem; }
+  .showcase-grid.reverse { direction:ltr; }
+  .journey-steps { grid-template-columns:1fr 1fr; gap:2rem; }
+  .journey-steps::before { display:none; }
+  .stats-grid { grid-template-columns:repeat(2,1fr); }
+  .testimonials-grid { grid-template-columns:1fr 1fr; }
+  .footer-grid { grid-template-columns:1fr 1fr; gap:2rem; }
+}
+@media(max-width:768px) {
+  .nav-links, .nav-ctas { display:none; }
+  .nav-hamburger { display:flex; }
+  .hero-title { letter-spacing:-1px; }
+  .features-grid { grid-template-columns:1fr; }
+  .journey-steps { grid-template-columns:1fr; }
+  .stats-grid { grid-template-columns:1fr 1fr; }
+  .testimonials-grid { grid-template-columns:1fr; }
+  .footer-grid { grid-template-columns:1fr; gap:2rem; }
+  .footer-bottom { flex-direction:column; text-align:center; }
+}
+  </style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div class="scanline"></div>
+
+<!-- ════════════════════════════════════════════════════════════
+     NAVBAR
+════════════════════════════════════════════════════════════ -->
+<nav class="nav" id="navbar">
+  <a href="{{ url_for('entrance.entrance') }}" class="nav-logo">
+    CORE <span>OS</span>
+    <div class="nav-logo-dot"></div>
+  </a>
+
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how-it-works">How It Works</a></li>
+    <li><a href="#how-it-works">How It Works</a></li>
+  </ul>
+
+  <div class="nav-ctas">
+    <a href="{{ url_for('auth.login') }}" class="nav-signin">Sign In</a>
+    <a href="{{ url_for('auth.register') }}" class="nav-get-started">Get Started →</a>
+  </div>
+
+  <button class="nav-hamburger" id="hamburger" aria-label="Open menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- Mobile menu -->
+<div class="nav-mobile-menu" id="mobile-menu">
+  <a href="#features"      onclick="closeMobile()">Features</a>
+  <a href="#how-it-works"  onclick="closeMobile()">How It Works</a>
+  <a href="#proof"         onclick="closeMobile()">Why CORE OS</a>
+  <a href="{{ url_for('auth.login') }}" onclick="closeMobile()">Sign In</a>
+  <a href="{{ url_for('auth.register') }}" class="mobile-cta" onclick="closeMobile()">⚡ Get Started</a>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     HERO
+════════════════════════════════════════════════════════════ -->
+<section class="hero" id="hero">
+  <div class="hero-eyebrow">CORE_OS v16 — ALL SYSTEMS ONLINE</div>
+
+  <h1 class="hero-title">COMMAND<br>YOUR LIFE</h1>
+  <div class="hero-title-sub">TASKS · HABITS · FINANCES · WELLNESS · IDENTITY</div>
+
+  <p class="hero-desc">
+    Stop juggling apps. CORE OS unifies your tasks, habits, finances, and wellness
+    into one intelligent command center — with a gamified XP system that makes
+    building consistency genuinely addictive.
+  </p>
+
+  <div class="hero-ctas">
+    <a href="{{ url_for('auth.register') }}" class="cta-primary">
+      <span>⚡</span> GET STARTED FREE
+    </a>
+    <a href="{{ url_for('auth.login') }}" class="cta-secondary">
+      <span>→</span> SIGN IN
+    </a>
+  </div>
+
+  <div class="hero-badges">
+    <div class="hero-badge">🔒 &nbsp;No credit card</div>
+    <div class="hero-badge">⚡ &nbsp;Free to start</div>
+    <div class="hero-badge">🎮 &nbsp;Gamified XP system</div>
+    <div class="hero-badge">🧠 &nbsp;AI-powered insights</div>
+  </div>
+
+  <div class="scroll-hint">
+    <span>SCROLL</span>
+    <div class="scroll-arrow"></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     FEATURES
+════════════════════════════════════════════════════════════ -->
+<section id="features" class="features-section">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="sec-label">// SYSTEM_MODULES</div>
+      <h2 class="sec-title">Every module you need.<br><em>Nothing you don't.</em></h2>
+      <p class="sec-sub">Six integrated command modules. Each earns XP, builds streaks, and feeds your live productivity score.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card reveal reveal-d1">
+        <span class="fc-icon">📅</span>
+        <div class="fc-title">Task Matrix</div>
+        <p class="fc-desc">Kanban-style board with CRITICAL → LOW priority tiers. Due dates, overdue detection, and completion tracking that actually changes your threat score.</p>
+        <span class="fc-tag">+50 CR / TASK DONE</span>
+      </div>
+      <div class="feature-card reveal reveal-d2">
+        <span class="fc-icon">⏳</span>
+        <div class="fc-title">Habit Engine</div>
+        <p class="fc-desc">30-day activity heatmaps and milestone streaks from Three-Peat to Iron Discipline (30 days). Streak Guardian protects you from single-day breaks.</p>
+        <span class="fc-tag">+20 CR / SYNC</span>
+      </div>
+      <div class="feature-card reveal reveal-d3">
+        <span class="fc-icon">💸</span>
+        <div class="fc-title">Wallet Module</div>
+        <p class="fc-desc">Real-time budget tracking with monthly limits. Category breakdowns, spend alerts, and full transaction ledger. Your finances inside your command center.</p>
+        <span class="fc-tag">REAL_TIME TRACKING</span>
+      </div>
+      <div class="feature-card reveal reveal-d1">
+        <span class="fc-icon">🧠</span>
+        <div class="fc-title">Neural Lab + AI Insights</div>
+        <p class="fc-desc">Log energy, clarity, and mood daily. The AI engine analyzes cross-domain patterns — like "you spend more when your mood is low" — from your real data.</p>
+        <span class="fc-tag">AI_POWERED PATTERNS</span>
+      </div>
+      <div class="feature-card reveal reveal-d2">
+        <span class="fc-icon">🎮</span>
+        <div class="fc-title">XP & Leveling System</div>
+        <p class="fc-desc">Every action earns XP. Level up, unlock titles like Focus Master and Iron Operative, and spend credits in the shop on real power-ups that affect gameplay.</p>
+        <span class="fc-tag">INFINITE PROGRESSION</span>
+      </div>
+      <div class="feature-card reveal reveal-d3">
+        <span class="fc-icon">📊</span>
+        <div class="fc-title">Command Center Dashboard</div>
+        <p class="fc-desc">Live threat score, productivity ring, weekly trend charts, and an AI-driven next-best-action system. Your entire life at a single glance.</p>
+        <span class="fc-tag">LIVE INTEL FEED</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     SHOWCASE — Dashboard Preview
+════════════════════════════════════════════════════════════ -->
+<section id="how-it-works">
+  <div class="section-inner">
+    <div class="showcase-grid reveal">
+      <div class="showcase-text">
+        <div class="sec-label">// COMMAND_CENTER</div>
+        <h2 class="sec-title">Your dashboard<br>is <em>alive.</em></h2>
+        <p class="sec-sub">The CORE OS dashboard isn't static — it computes a live productivity score from your tasks, habits, wellness, and budget every single visit.</p>
+        <ul style="list-style:none;margin-top:1.5rem;display:flex;flex-direction:column;gap:.8rem;">
+          <li style="display:flex;gap:.8rem;align-items:flex-start;font-size:.9rem;color:#94a3b8;"><span style="color:var(--success);flex-shrink:0;margin-top:.1rem;">✓</span> Threat score calculated from overdue tasks + low wellness</li>
+          <li style="display:flex;gap:.8rem;align-items:flex-start;font-size:.9rem;color:#94a3b8;"><span style="color:var(--success);flex-shrink:0;margin-top:.1rem;">✓</span> Productivity score 0–100 from 4 weighted components</li>
+          <li style="display:flex;gap:.8rem;align-items:flex-start;font-size:.9rem;color:#94a3b8;"><span style="color:var(--success);flex-shrink:0;margin-top:.1rem;">✓</span> AI-driven next-best-action suggestion, every session</li>
+          <li style="display:flex;gap:.8rem;align-items:flex-start;font-size:.9rem;color:#94a3b8;"><span style="color:var(--success);flex-shrink:0;margin-top:.1rem;">✓</span> Streak milestones that fire emotional feedback banners</li>
+        </ul>
+      </div>
+      <div class="showcase-visual">
+        <div class="ui-mock">
+          <div class="ui-mock-dots"><span></span><span></span><span></span></div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--accent2);letter-spacing:2px;margin-bottom:1rem;">// COMMAND_CENTER</div>
+          <div style="display:flex;flex-direction:column;gap:.8rem;">
+            <div style="padding:.75rem 1rem;border-radius:10px;background:rgba(99,102,241,.07);border-left:3px solid var(--accent);">
+              <div style="font-family:'Share Tech Mono',monospace;font-size:.55rem;color:var(--dim);margin-bottom:.3rem;">PRODUCTIVITY</div>
+              <div style="font-family:'Rajdhani',sans-serif;font-size:.88rem;font-weight:700;color:var(--text);">Unified score across tasks, habits &amp; wellness</div>
+            </div>
+            <div style="padding:.75rem 1rem;border-radius:10px;background:rgba(16,185,129,.07);border-left:3px solid var(--success);">
+              <div style="font-family:'Share Tech Mono',monospace;font-size:.55rem;color:var(--dim);margin-bottom:.3rem;">THREAT SCORE</div>
+              <div style="font-family:'Rajdhani',sans-serif;font-size:.88rem;font-weight:700;color:var(--text);">Overdue tasks &amp; low wellness flag your real risks</div>
+            </div>
+            <div style="padding:.75rem 1rem;border-radius:10px;background:rgba(251,191,36,.07);border-left:3px solid var(--gold);">
+              <div style="font-family:'Share Tech Mono',monospace;font-size:.55rem;color:var(--dim);margin-bottom:.3rem;">XP &amp; LEVELS</div>
+              <div style="font-family:'Rajdhani',sans-serif;font-size:.88rem;font-weight:700;color:var(--text);">Every action you take earns experience and identity</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     SHOWCASE — AI Insights
+════════════════════════════════════════════════════════════ -->
+<section style="background:rgba(3,4,10,.4);">
+  <div class="section-inner">
+    <div class="showcase-grid reverse reveal">
+      <div class="showcase-visual">
+        <div class="ui-mock">
+          <div class="ui-mock-dots"><span></span><span></span><span></span></div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--accent2);letter-spacing:2px;margin-bottom:1rem;">// INTELLIGENCE_FEED</div>
+          <div style="display:flex;flex-direction:column;gap:.6rem;">
+            <div style="padding:.8rem 1rem;border-radius:10px;background:rgba(99,102,241,.06);border-left:3px solid var(--accent);">
+              <div style="font-family:'Rajdhani',sans-serif;font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:.3rem;">🧠 Spend-mood correlation detected</div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--dim);line-height:1.6;">You tend to spend significantly more on low-mood days. CORE OS detects this pattern automatically from your real data.</div>
+            </div>
+            <div style="padding:.8rem 1rem;border-radius:10px;background:rgba(16,185,129,.06);border-left:3px solid var(--success);">
+              <div style="font-family:'Rajdhani',sans-serif;font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:.3rem;">📈 Habit consistency improving</div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--dim);line-height:1.6;">Your weekly habit syncs are trending upward — consistency drives the compound gains that show up in your productivity score.</div>
+            </div>
+            <div style="padding:.8rem 1rem;border-radius:10px;background:rgba(251,191,36,.06);border-left:3px solid var(--gold);">
+              <div style="font-family:'Rajdhani',sans-serif;font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:.3rem;">✨ High wellness predicts output</div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--dim);line-height:1.6;">Days with high wellness scores correlate strongly with higher task completion. CORE OS surfaces this so you can act on it.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="showcase-text">
+        <div class="sec-label">// INTELLIGENCE_ENGINE</div>
+        <h2 class="sec-title">AI that actually<br><em>reads your patterns.</em></h2>
+        <p class="sec-sub">CORE OS analyzes cross-domain correlations in your real data — finding connections between mood, spending, productivity, and habits that you'd never spot yourself.</p>
+        <div style="display:flex;gap:.7rem;flex-wrap:wrap;margin-top:1.5rem;">
+          <span style="font-family:'Share Tech Mono',monospace;font-size:.6rem;padding:.3rem .8rem;border:1px solid var(--border);border-radius:20px;color:var(--dim);">12 insight rules</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:.6rem;padding:.3rem .8rem;border:1px solid var(--border);border-radius:20px;color:var(--dim);">Cross-domain patterns</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:.6rem;padding:.3rem .8rem;border:1px solid var(--border);border-radius:20px;color:var(--dim);">Real data only</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     JOURNEY / STORYTELLING
+════════════════════════════════════════════════════════════ -->
+<section class="journey-section">
+  <div class="section-inner" style="text-align:center;">
+    <div class="reveal">
+      <div class="sec-label">// USER_JOURNEY</div>
+      <h2 class="sec-title">From chaos to <em>identity.</em></h2>
+      <p class="sec-sub" style="margin:0 auto 1rem;">Five phases of transformation. CORE OS is not a to-do list — it's an operating system for your life.</p>
+    </div>
+    <div class="journey-steps">
+      <div class="journey-step reveal reveal-d1">
+        <div class="step-node" style="border-color:var(--danger);color:var(--danger);">
+          💢
+          <div class="step-num">1</div>
+        </div>
+        <div class="step-name" style="color:var(--danger);">CHAOS</div>
+        <div class="step-desc">Scattered tasks, forgotten habits, no idea where money goes</div>
+      </div>
+      <div class="journey-step reveal reveal-d2">
+        <div class="step-node" style="border-color:var(--gold);color:var(--gold);">
+          🗂️
+          <div class="step-num">2</div>
+        </div>
+        <div class="step-name" style="color:var(--gold);">STRUCTURE</div>
+        <div class="step-desc">Tasks prioritized, habits logged, budget tracked in one place</div>
+      </div>
+      <div class="journey-step reveal reveal-d3">
+        <div class="step-node" style="border-color:var(--accent);color:var(--accent2);">
+          🔥
+          <div class="step-num">3</div>
+        </div>
+        <div class="step-name" style="color:var(--accent2);">MOMENTUM</div>
+        <div class="step-desc">Streaks compound, XP accumulates, patterns become clear</div>
+      </div>
+      <div class="journey-step reveal reveal-d4">
+        <div class="step-node" style="border-color:var(--accent2);color:var(--accent2);">
+          🎖️
+          <div class="step-num">4</div>
+        </div>
+        <div class="step-name" style="color:var(--accent2);">IDENTITY</div>
+        <div class="step-desc">Earn titles: Week Warrior, Focus Master, Iron Operative</div>
+      </div>
+      <div class="journey-step reveal reveal-d5">
+        <div class="step-node" style="border-color:var(--success);color:var(--success);">
+          🚀
+          <div class="step-num">5</div>
+        </div>
+        <div class="step-name" style="color:var(--success);">GROWTH</div>
+        <div class="step-desc">AI insights reveal the levers that compound your output</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     STATS + TESTIMONIALS
+════════════════════════════════════════════════════════════ -->
+<section class="proof-section">
+  <div class="section-inner">
+    <div class="stats-grid reveal">
+      <div class="stat-box">
+        <div class="stat-box-num">6</div>
+        <div class="stat-box-lbl">MODULES INTEGRATED</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-num">19</div>
+        <div class="stat-box-lbl">ACHIEVEMENTS TO UNLOCK</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-num">12</div>
+        <div class="stat-box-lbl">AI INSIGHT RULES</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-num">∞</div>
+        <div class="stat-box-lbl">XP POTENTIAL</div>
+      </div>
+    </div>
+
+    <div class="reveal" style="margin-bottom:2rem;">
+      <div class="sec-label">// USER_TESTIMONIALS</div>
+      <h2 class="sec-title">What operatives<br><em>say about CORE OS.</em></h2>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testi-card reveal reveal-d1">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"I've tried every productivity app. CORE OS is the only one that made me feel like completing tasks actually matters. The XP system is genuinely addictive."</p>
+        <div class="testi-author">
+          <div class="testi-avatar">A</div>
+          <div>
+            <div class="testi-name">Arjun M.</div>
+            <div class="testi-role">SOFTWARE ENGINEER</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card reveal reveal-d2">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"The AI insight that told me I spend more on low-mood days was a genuine revelation. I changed a real financial habit because of a pattern I'd never have noticed."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--success),var(--accent2));">S</div>
+          <div>
+            <div class="testi-name">Shreya K.</div>
+            <div class="testi-role">PRODUCT MANAGER</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card reveal reveal-d3">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"Hit a 30-day habit streak and earned Iron Discipline. That achievement felt more satisfying than most real-world accomplishments. The identity system is brilliant."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--gold),var(--danger));">R</div>
+          <div>
+            <div class="testi-name">Rohan P.</div>
+            <div class="testi-role">ENTREPRENEUR</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     FULL ACCESS
+════════════════════════════════════════════════════════════ -->
+<section style="background:rgba(3,4,10,.55);" id="proof">
+  <div class="section-inner">
+    <div class="reveal" style="text-align:center;max-width:720px;margin:0 auto;">
+      <div class="sec-label">// FULL_ACCESS</div>
+      <h2 class="sec-title">Everything unlocked.<br><em>No limits.</em></h2>
+      <p class="sec-sub" style="margin:0 auto 3rem;">Every feature — AI insights, achievement tiers, habit tracking, analytics — fully available from day one. No paywalls. No upgrade prompts.</p>
+    </div>
+    <div class="reveal" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.2rem;max-width:900px;margin:0 auto;">
+      <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:1.8rem;text-align:center;backdrop-filter:blur(8px);transition:.3s ease;">
+        <div style="font-size:2rem;margin-bottom:.8rem;">📊</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:.4rem;">Full Dashboard</div>
+        <div style="font-size:.82rem;color:#94a3b8;line-height:1.7;">Live threat score, productivity ring, charts and activity feed.</div>
+      </div>
+      <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:1.8rem;text-align:center;backdrop-filter:blur(8px);transition:.3s ease;">
+        <div style="font-size:2rem;margin-bottom:.8rem;">🧠</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:.4rem;">All AI Insights</div>
+        <div style="font-size:.82rem;color:#94a3b8;line-height:1.7;">All 5 intelligence rules including cross-domain pattern analysis.</div>
+      </div>
+      <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:1.8rem;text-align:center;backdrop-filter:blur(8px);transition:.3s ease;">
+        <div style="font-size:2rem;margin-bottom:.8rem;">🏆</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:.4rem;">19 Achievements</div>
+        <div style="font-size:.82rem;color:#94a3b8;line-height:1.7;">Full achievement tier breakdown — bronze, silver, and gold.</div>
+      </div>
+      <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:1.8rem;text-align:center;backdrop-filter:blur(8px);transition:.3s ease;">
+        <div style="font-size:2rem;margin-bottom:.8rem;">🎯</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:.4rem;">Custom Goals</div>
+        <div style="font-size:.82rem;color:#94a3b8;line-height:1.7;">Edit your own weekly task and habit targets — no restrictions.</div>
+      </div>
+    </div>
+    <div class="reveal" style="text-align:center;margin-top:2.5rem;">
+      <a href="{{ url_for('auth.register') }}" class="cta-primary" style="display:inline-flex;">
+        <span>⚡</span> START FOR FREE — NO LIMITS
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     FINAL CTA
+════════════════════════════════════════════════════════════ -->
+<section class="final-cta-section">
+  <div class="final-cta-glow"></div>
+  <div class="section-inner" style="text-align:center;position:relative;z-index:1;">
+    <div class="reveal">
+      <div class="sec-label">// READY_TO_INITIALIZE</div>
+      <h2 class="sec-title">Stop managing your life.<br><em>Start commanding it.</em></h2>
+      <p class="sec-sub" style="margin:0 auto 3rem;">Tasks, habits, finances, wellness, and AI insights — unified in one futuristic terminal. Free to start. Takes 2 minutes.</p>
+      <div style="display:flex;gap:1.2rem;justify-content:center;flex-wrap:wrap;">
+        <a href="{{ url_for('auth.register') }}" class="cta-primary" style="font-size:1.1rem;padding:1.1rem 3rem;">
+          <span>⚡</span> DEPLOY YOUR CORE OS
+        </a>
+        <a href="{{ url_for('auth.login') }}" class="cta-secondary">
+          Already have an account →
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════════════════════ -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <span class="footer-logo">CORE <span>OS</span></span>
+      <p>The gamified productivity operating system for high-performers. Command every dimension of your life.</p>
+    </div>
+    <div>
+      <div class="footer-col-title">// PRODUCT</div>
+      <ul class="footer-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how-it-works">How It Works</a></li>
+        <li><a href="#proof">Why CORE OS</a></li>
+        <li><a href="{{ url_for('auth.register') }}">Get Started</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-title">// ACCOUNT</div>
+      <ul class="footer-links">
+        <li><a href="{{ url_for('auth.login') }}">Sign In</a></li>
+        <li><a href="{{ url_for('auth.register') }}">Register</a></li>
+        <li><a href="{{ url_for('auth.forgot_password') }}">Reset Password</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-title">// SYSTEM</div>
+      <ul class="footer-links">
+        <li><a href="#" style="pointer-events:none;opacity:.4;">About</a></li>
+        <li><a href="#" style="pointer-events:none;opacity:.4;">Support</a></li>
+        <li><a href="{{ url_for('legal.privacy') }}">Privacy Policy</a></li>
+        <li><a href="{{ url_for('legal.terms') }}">Terms</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-copy">© 2026 CORE OS — ALL SYSTEMS NOMINAL</div>
+    <div class="footer-status">
+      <span><span class="dot">●</span> SYSTEM ONLINE</span>
+      <span><span class="dot">●</span> BUILD v16</span>
+      <span><span class="dot">●</span> UPLINK ACTIVE</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ════════════════════════════════════════════════════════════
+     THREE.JS BACKGROUND
+════════════════════════════════════════════════════════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  var canvas   = document.getElementById('bg-canvas');
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x000000, 0);
+
+  var scene  = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
+  camera.position.set(0, 0, 28);
+
+  /* Grid floor */
+  var gridGeo = new THREE.PlaneGeometry(120, 120, 40, 40);
+  var gridMat = new THREE.MeshBasicMaterial({ color:0x1e1b4b, wireframe:true, transparent:true, opacity:0.14 });
+  var grid = new THREE.Mesh(gridGeo, gridMat);
+  grid.rotation.x = -Math.PI / 2.5;
+  grid.position.y = -14;
+  scene.add(grid);
+
+  /* Central icosahedron */
+  var icoGeo = new THREE.IcosahedronGeometry(5, 1);
+  var icoMat = new THREE.MeshBasicMaterial({ color:0x22d3ee, wireframe:true, transparent:true, opacity:0.3 });
+  var ico = new THREE.Mesh(icoGeo, icoMat);
+  scene.add(ico);
+
+  var innerGeo = new THREE.IcosahedronGeometry(3.5, 1);
+  var innerMat = new THREE.MeshBasicMaterial({ color:0x6366f1, wireframe:true, transparent:true, opacity:0.2 });
+  var inner = new THREE.Mesh(innerGeo, innerMat);
+  scene.add(inner);
+
+  /* Torus rings */
+  var ringGeo = new THREE.TorusGeometry(7, 0.04, 4, 100);
+  var ringMat = new THREE.MeshBasicMaterial({ color:0x22d3ee, transparent:true, opacity:0.45 });
+  var ring1   = new THREE.Mesh(ringGeo, ringMat);
+  scene.add(ring1);
+
+  var ring2Geo = new THREE.TorusGeometry(9, 0.03, 4, 100);
+  var ring2Mat = new THREE.MeshBasicMaterial({ color:0x6366f1, transparent:true, opacity:0.3 });
+  var ring2    = new THREE.Mesh(ring2Geo, ring2Mat);
+  scene.add(ring2);
+
+  /* Particles */
+  var ptGeo = new THREE.BufferGeometry();
+  var pts   = [];
+  for (var i = 0; i < 1800; i++) {
+    pts.push((Math.random()-0.5)*120, (Math.random()-0.5)*80, (Math.random()-0.5)*80);
+  }
+  ptGeo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  var ptMat = new THREE.PointsMaterial({ color:0x6366f1, size:0.12, transparent:true, opacity:0.55 });
+  var particles = new THREE.Points(ptGeo, ptMat);
+  scene.add(particles);
+
+  /* Secondary particles */
+  var pt2Geo = new THREE.BufferGeometry();
+  var pts2   = [];
+  for (var j = 0; j < 900; j++) {
+    pts2.push((Math.random()-0.5)*100, (Math.random()-0.5)*70, (Math.random()-0.5)*70);
+  }
+  pt2Geo.setAttribute('position', new THREE.Float32BufferAttribute(pts2, 3));
+  var pt2Mat = new THREE.PointsMaterial({ color:0x818cf8, size:0.08, transparent:true, opacity:0.38 });
+  var particles2 = new THREE.Points(pt2Geo, pt2Mat);
+  scene.add(particles2);
+
+  /* Mouse parallax */
+  var mouse = { x:0, y:0 };
+  document.addEventListener('mousemove', function(e) {
+    mouse.x = (e.clientX / window.innerWidth  - 0.5) * 2;
+    mouse.y = (e.clientY / window.innerHeight - 0.5) * 2;
+  });
+
+  window.addEventListener('resize', function() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  var clock = new THREE.Clock();
+  function animate() {
+    requestAnimationFrame(animate);
+    var t = clock.getElapsedTime();
+
+    ico.rotation.x   =  t * 0.18;
+    ico.rotation.y   =  t * 0.24;
+    inner.rotation.x = -t * 0.22;
+    inner.rotation.y = -t * 0.30;
+    ring1.rotation.z =  t * 0.12;
+    ring2.rotation.z = -t * 0.09;
+    ring2.rotation.x = Math.PI / 3 + Math.sin(t * 0.3) * 0.2;
+
+    particles.rotation.y  =  t * 0.025;
+    particles.rotation.x  =  t * 0.015;
+    particles2.rotation.y = -t * 0.020;
+
+    grid.position.z = ((t * 1.5) % 3) - 1.5;
+
+    /* Mouse parallax */
+    camera.position.x += (mouse.x * 4 - camera.position.x) * 0.04;
+    camera.position.y += (-mouse.y * 2 - camera.position.y) * 0.04;
+    camera.lookAt(0, 0, 0);
+
+    /* Pulse */
+    icoMat.opacity   = 0.22 + Math.sin(t * 1.2) * 0.1;
+    ringMat.opacity  = 0.38 + Math.sin(t * 0.8) * 0.12;
+
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  /* Feature card 3D tilt */
+  document.querySelectorAll('.feature-card,.plan-card,.testi-card').forEach(function(card) {
+    card.addEventListener('mousemove', function(e) {
+      var r = card.getBoundingClientRect();
+      var x = (e.clientX - r.left) / r.width  - 0.5;
+      var y = (e.clientY - r.top)  / r.height - 0.5;
+      card.style.transform = 'translateY(-5px) rotateX('+(-y*7)+'deg) rotateY('+(x*7)+'deg)';
+    });
+    card.addEventListener('mouseleave', function() { card.style.transform = ''; });
+  });
+})();
+</script>
+
+<!-- ════════════════════════════════════════════════════════════
+     PAGE JS — navbar scroll, mobile menu, scroll-reveal
+════════════════════════════════════════════════════════════ -->
+<script>
+/* Sticky navbar */
+var navbar = document.getElementById('navbar');
+window.addEventListener('scroll', function() {
+  if (window.scrollY > 40) navbar.classList.add('scrolled');
+  else navbar.classList.remove('scrolled');
+}, { passive:true });
+
+/* Mobile menu */
+var hamburger   = document.getElementById('hamburger');
+var mobileMenu  = document.getElementById('mobile-menu');
+var menuOpen    = false;
+function closeMobile() { mobileMenu.style.display='none'; menuOpen=false; }
+hamburger.addEventListener('click', function() {
+  menuOpen = !menuOpen;
+  mobileMenu.style.display = menuOpen ? 'flex' : 'none';
+});
+document.addEventListener('click', function(e) {
+  if (menuOpen && !navbar.contains(e.target)) closeMobile();
+});
+
+/* Scroll-reveal */
+if ('IntersectionObserver' in window) {
+  var io = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.08, rootMargin:'0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(function(el) { io.observe(el); });
+}
+
+/* Smooth active nav link highlight on scroll */
+var sections = document.querySelectorAll('section[id]');
+var navAs    = document.querySelectorAll('.nav-links a[href^="#"]');
+window.addEventListener('scroll', function() {
+  var scrollY = window.scrollY + 120;
+  sections.forEach(function(sec) {
+    if (scrollY >= sec.offsetTop && scrollY < sec.offsetTop + sec.offsetHeight) {
+      navAs.forEach(function(a) {
+        a.style.color = a.getAttribute('href') === '#'+sec.id ? 'var(--text)' : '';
+      });
+    }
+  });
+}, { passive:true });
+</script>
+
+<!-- Flash toasts (in case user is redirected here with a flash message) -->
+<div id="flash-data" style="display:none"
+     data-messages="{{ get_flashed_messages(with_categories=true)|tojson|e }}"></div>
+<div id="toast-container" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:10px;align-items:center;pointer-events:none;"></div>
+<script>
+(function(){
+  var raw=document.getElementById('flash-data'); if(!raw) return;
+  var msgs; try{msgs=JSON.parse(raw.dataset.messages||'[]');}catch(e){return;}
+  if(!msgs.length) return;
+  var COLORS={success:{border:'#10b981',text:'#6ee7b7',icon:'✓'},error:{border:'#f43f5e',text:'#fda4af',icon:'✕'},info:{border:'#6366f1',text:'#a5b4fc',icon:'ℹ'},warning:{border:'#fbbf24',text:'#fcd34d',icon:'⚠'}};
+  var container=document.getElementById('toast-container');
+  msgs.forEach(function(pair,idx){
+    var cat=pair[0]||'info',msg=pair[1]||'',c=COLORS[cat]||COLORS.info;
+    var div=document.createElement('div');
+    div.style.cssText='background:rgba(5,8,18,.97);border:1px solid '+c.border+';border-radius:10px;padding:10px 18px;font-family:Share Tech Mono,monospace;font-size:.72rem;color:'+c.text+';box-shadow:0 4px 24px rgba(0,0,0,.5);display:flex;align-items:center;gap:10px;max-width:480px;pointer-events:auto;cursor:pointer;';
+    div.innerHTML='<span style="font-size:1rem">'+c.icon+'</span><span>'+msg+'</span>';
+    div.onclick=function(){div.style.opacity='0';setTimeout(function(){div.remove();},400);};
+    container.appendChild(div);
+    setTimeout(function(){div.style.opacity='0';setTimeout(function(){div.remove();},400);},4500+idx*350);
+  });
+})();
+</script>
+</body>
+</html>

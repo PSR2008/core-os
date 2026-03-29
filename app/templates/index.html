@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORE OS — COMMAND CENTER</title>
+    <script>
+    (function(){
+        var skinMap={'crimson':{{ 'true' if crimson_active else 'false' }},'neon':{{ 'true' if neon_active else 'false' }},'void':{{ 'true' if void_active else 'false' }},'solar':{{ 'true' if solar_active else 'false' }}};
+        try{localStorage.setItem('coreOsOwnedItems',JSON.stringify({{ owned_names|tojson }}));}catch(e){}
+        var active=localStorage.getItem('coreOsActiveSkin')||'';
+        if(!active){if(localStorage.getItem('coreOsSkinEnabled')==='true')active='crimson';else if(localStorage.getItem('coreOsNeonEnabled')==='true')active='neon';}
+        if(active&&skinMap[active])document.documentElement.setAttribute('data-skin',active);
+    })();
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* ── Dashboard-specific overrides ── */
+        .db-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
+        .db-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem;margin-bottom:1.5rem;}
+        .db-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;}
+        .db-grid-2-1{display:grid;grid-template-columns:2fr 1fr;gap:1.5rem;margin-bottom:1.5rem;}
+        @media(max-width:1100px){.db-grid-4{grid-template-columns:repeat(2,1fr)}.db-grid-2-1{grid-template-columns:1fr}}
+        @media(max-width:700px){.db-grid-4{grid-template-columns:1fr}.db-grid-3{grid-template-columns:1fr}.db-grid-2{grid-template-columns:1fr}}
+
+        /* ── Metric cards ── */
+        .mc{position:relative;overflow:hidden;transition:transform .25s,box-shadow .25s;cursor:default;}
+        .mc:hover{transform:translateY(-3px);}
+        .mc-icon{font-size:1.6rem;margin-bottom:.6rem;display:block;}
+        .mc-val{font-family:'Rajdhani',sans-serif;font-size:2.2rem;font-weight:700;line-height:1;letter-spacing:-1px;}
+        .mc-lbl{font-family:'Share Tech Mono',monospace;font-size:.58rem;letter-spacing:2px;color:var(--text-dim);margin-top:.4rem;}
+        .mc-sub{font-size:.75rem;color:var(--text-dim);margin-top:.3rem;}
+        .mc-trend{font-family:'Share Tech Mono',monospace;font-size:.6rem;margin-top:.5rem;padding:2px 8px;border-radius:12px;display:inline-block;}
+        .trend-up   {background:rgba(16,185,129,.12);color:#6ee7b7;}
+        .trend-down {background:rgba(244,63,94,.12); color:#fda4af;}
+        .trend-same {background:rgba(100,116,139,.12);color:#94a3b8;}
+        .mc::after{content:'';position:absolute;bottom:-20px;right:-20px;width:80px;height:80px;border-radius:50%;opacity:.06;pointer-events:none;}
+        .mc-gold{border-color:rgba(251,191,36,.25)!important;}.mc-gold::after{background:var(--gold);}
+        .mc-green{border-color:rgba(16,185,129,.25)!important;}.mc-green::after{background:var(--success);}
+        .mc-blue{border-color:rgba(99,102,241,.25)!important;}.mc-blue::after{background:var(--accent);}
+        .mc-cyan{border-color:rgba(34,211,238,.25)!important;}.mc-cyan::after{background:var(--accent2);}
+        .mc-red{border-color:rgba(244,63,94,.25)!important;}.mc-red::after{background:var(--danger);}
+
+        /* ── Productivity ring ── */
+        .prod-ring-wrap{display:flex;align-items:center;gap:2rem;padding:.5rem 0;}
+        .prod-ring{position:relative;width:100px;height:100px;flex-shrink:0;}
+        .prod-ring svg{transform:rotate(-90deg);}
+        .prod-ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+        .prod-score-num{font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;line-height:1;}
+        .prod-score-lbl{font-family:'Share Tech Mono',monospace;font-size:.5rem;color:var(--text-dim);letter-spacing:1px;margin-top:2px;}
+
+        /* ── Threat card ── */
+        .threat-bar-track{height:8px;background:rgba(255,255,255,.05);border-radius:10px;overflow:hidden;margin:1rem 0 .3rem;}
+        .threat-bar-fill{height:100%;border-radius:10px;background:linear-gradient(90deg,#10b981,#fbbf24,#f43f5e);transition:width 1.4s cubic-bezier(.22,1,.36,1);}
+        .threat-score-big{font-family:'Rajdhani',sans-serif;font-size:3rem;font-weight:700;line-height:1;letter-spacing:-2px;}
+        .threat-breakdown{display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem;margin-top:1rem;}
+        .tb-item{display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;}
+        .tb-icon{font-size:1rem;}
+        .tb-val{font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;line-height:1;}
+        .tb-lbl{font-family:'Share Tech Mono',monospace;font-size:.52rem;color:var(--text-dim);letter-spacing:1px;margin-top:1px;}
+
+        /* ── Next best action card ── */
+        .nba-card{display:flex;align-items:center;gap:1.2rem;padding:1.2rem 1.5rem;background:rgba(255,255,255,.02);border-radius:12px;border:1px solid var(--border);margin-bottom:1.5rem;transition:border-color .2s;}
+        .nba-card:hover{border-color:var(--border-bright);}
+        .nba-icon{font-size:1.8rem;flex-shrink:0;}
+        .nba-body{flex:1;}
+        .nba-title{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--text);}
+        .nba-desc{font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--text-dim);margin-top:3px;letter-spacing:.5px;}
+        .nba-btn{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:1.5px;padding:.5rem 1.2rem;border-radius:8px;background:rgba(99,102,241,.12);color:var(--accent2);border:1px solid rgba(99,102,241,.3);text-decoration:none;white-space:nowrap;transition:.2s;}
+        .nba-btn:hover{background:rgba(99,102,241,.22);border-color:var(--accent);}
+
+        /* ── Achievement badge ── */
+        .ach-badge{display:flex;align-items:center;gap:.7rem;padding:.7rem .9rem;border-radius:10px;background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.15);transition:.2s;}
+        .ach-badge:hover{background:rgba(251,191,36,.1);}
+        .ach-icon{font-size:1.4rem;}
+        .ach-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.85rem;color:var(--gold);}
+        .ach-desc{font-family:'Share Tech Mono',monospace;font-size:.56rem;color:var(--text-dim);margin-top:2px;letter-spacing:.5px;}
+
+        /* ── Progress hint bars ── */
+        .hint-item{padding:.7rem 0;border-top:1px solid rgba(255,255,255,.04);}
+        .hint-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;}
+        .hint-name{font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--text);letter-spacing:.5px;}
+        .hint-pct{font-family:'Rajdhani',sans-serif;font-size:.85rem;font-weight:700;color:var(--accent2);}
+        .hint-bar{height:4px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;}
+        .hint-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;transition:width 1s ease;}
+        .hint-sub{font-family:'Share Tech Mono',monospace;font-size:.55rem;color:var(--text-dim);margin-top:3px;}
+
+        /* ── Empty state ── */
+        .empty-hero{text-align:center;padding:3rem 2rem;}
+        .empty-hero-icon{font-size:3rem;margin-bottom:1rem;display:block;}
+        .empty-hero-title{font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;margin-bottom:.5rem;}
+        .empty-hero-text{font-family:'Share Tech Mono',monospace;font-size:.65rem;color:var(--text-dim);line-height:2;letter-spacing:.5px;}
+        .empty-cta-grid{display:flex;flex-wrap:wrap;gap:.7rem;justify-content:center;margin-top:1.5rem;}
+        .empty-cta{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.85rem;letter-spacing:1.5px;padding:.7rem 1.4rem;border-radius:10px;text-decoration:none;transition:.2s;border:1px solid;}
+
+        /* ── Habit streak pills ── */
+        .streak-pill{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .7rem;border-radius:20px;font-family:'Share Tech Mono',monospace;font-size:.58rem;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);color:var(--accent2);transition:.2s;}
+
+        /* ── Section heads ── */
+        .sh{font-family:'Share Tech Mono',monospace;font-size:.65rem;letter-spacing:2.5px;color:var(--accent2);margin-bottom:1.2rem;display:flex;align-items:center;gap:10px;}
+        .sh::after{content:'';flex:1;height:1px;background:var(--border);}
+
+        /* ── Greeting ── */
+        .greeting{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--accent2);letter-spacing:3px;margin-bottom:.3rem;}
+
+        /* ── Overdue alert ── */
+        .overdue-alert{display:flex;align-items:center;gap:1rem;padding:.9rem 1.4rem;background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.25);border-radius:10px;margin-bottom:1.2rem;font-family:'Share Tech Mono',monospace;font-size:.7rem;}
+        .overdue-alert a{color:var(--danger);font-weight:700;text-decoration:none;margin-left:auto;border:1px solid rgba(244,63,94,.3);padding:.3rem .8rem;border-radius:6px;transition:.2s;}
+        .overdue-alert a:hover{background:rgba(244,63,94,.1);}
+
+        /* ── Quick action bar ── */
+        .qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-bottom:1.5rem;}
+        @media(max-width:700px){.qa-grid{grid-template-columns:repeat(2,1fr)}}
+        .qa-btn{display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.7rem;border-radius:10px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.82rem;letter-spacing:1px;text-decoration:none;background:rgba(255,255,255,.03);border:1px solid var(--border);color:var(--text-dim);transition:.2s;}
+        .qa-btn:hover{background:rgba(99,102,241,.1);border-color:var(--accent);color:var(--text);}
+
+        /* ── Intelligence panel ── */
+        .intel-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-bottom:1.5rem;}
+        @media(max-width:900px){.intel-grid{grid-template-columns:1fr;}}
+
+        /* ── Suggestions ── */
+        .sug-item{display:flex;align-items:flex-start;gap:.9rem;padding:1rem;border-radius:10px;background:rgba(255,255,255,.02);border:1px solid var(--border);transition:border-color .2s,background .2s;margin-bottom:.6rem;}
+        .sug-item:last-child{margin-bottom:0;}
+        .sug-item:hover{background:rgba(99,102,241,.04);border-color:var(--border-bright);}
+        .sug-icon{font-size:1.3rem;flex-shrink:0;margin-top:.1rem;}
+        .sug-body{flex:1;}
+        .sug-title{font-family:'Rajdhani',sans-serif;font-size:.9rem;font-weight:700;color:var(--text);line-height:1.2;}
+        .sug-desc{font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--text-dim);margin-top:3px;letter-spacing:.3px;line-height:1.6;}
+        .sug-link{font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--accent2);text-decoration:none;white-space:nowrap;padding:.3rem .7rem;border:1px solid rgba(34,211,238,.2);border-radius:6px;transition:.2s;flex-shrink:0;align-self:center;}
+        .sug-link:hover{background:rgba(34,211,238,.08);border-color:var(--accent2);}
+
+        /* ── Reminders ── */
+        .rem-item{display:flex;align-items:center;gap:.7rem;padding:.6rem .8rem;border-radius:8px;margin-bottom:.4rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;}
+        .rem-item:last-child{margin-bottom:0;}
+        .rem-high{background:rgba(244,63,94,.06);border:1px solid rgba(244,63,94,.2);color:#fda4af;}
+        .rem-medium{background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);color:#fcd34d;}
+        .rem-icon{font-size:1rem;flex-shrink:0;}
+        .rem-text{flex:1;}
+        .rem-link{color:inherit;text-decoration:none;opacity:.7;font-size:.55rem;white-space:nowrap;}
+        .rem-link:hover{opacity:1;}
+
+        /* ── Insights ── */
+        .insight-item{padding:.9rem 1rem;border-radius:10px;margin-bottom:.6rem;border-left:3px solid;transition:.2s;}
+        .insight-item:last-child{margin-bottom:0;}
+        .insight-positive{background:rgba(16,185,129,.05);border-color:var(--success);}
+        .insight-warning {background:rgba(244,63,94,.05);border-color:var(--danger);}
+        .insight-pattern {background:rgba(99,102,241,.05);border-color:var(--accent);}
+        .insight-neutral {background:rgba(100,116,139,.05);border-color:var(--text-dim);}
+        .insight-icon{font-size:1.1rem;margin-right:.5rem;}
+        .insight-title{font-family:'Rajdhani',sans-serif;font-size:.88rem;font-weight:700;color:var(--text);}
+        .insight-body{font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--text-dim);margin-top:4px;line-height:1.7;letter-spacing:.2px;}
+
+        /* ── Login streak badge ── */
+        .login-streak-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.4rem 1rem;border-radius:20px;font-family:'Share Tech Mono',monospace;font-size:.62rem;letter-spacing:1px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:var(--gold);}
+        .login-streak-num{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;line-height:1;}
+
+        /* ── Feedback banners ── */
+        .feedback-banner{display:flex;align-items:flex-start;gap:1rem;padding:1rem 1.4rem;border-radius:12px;margin-bottom:.8rem;animation:fadeSlideIn .4s ease;}
+        @keyframes fadeSlideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+        .fb-milestone{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);}
+        .fb-celebration{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);}
+        .fb-encouragement{background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.3);}
+        .fb-warning{background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.3);}
+        .fb-icon{font-size:1.4rem;flex-shrink:0;margin-top:.1rem;}
+        .fb-text{font-family:'Share Tech Mono',monospace;font-size:.65rem;line-height:1.7;letter-spacing:.3px;}
+        .fb-milestone .fb-text{color:#fcd34d;}
+        .fb-celebration .fb-text{color:#6ee7b7;}
+        .fb-encouragement .fb-text{color:#a5b4fc;}
+        .fb-warning .fb-text{color:#fda4af;}
+
+        /* ── Identity badge ── */
+        .identity-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.4rem 1rem;border-radius:20px;font-family:'Share Tech Mono',monospace;font-size:.62rem;letter-spacing:1.5px;border:1px solid;margin-bottom:.5rem;}
+
+        /* ── Tier badges ── */
+        .tier-progress{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-top:1rem;}
+        .tier-box{padding:.7rem;border-radius:10px;text-align:center;border:1px solid;}
+        .tier-box-val{font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;line-height:1;}
+        .tier-box-lbl{font-family:'Share Tech Mono',monospace;font-size:.52rem;letter-spacing:1px;margin-top:2px;}
+        .tier-bar{height:3px;border-radius:3px;margin-top:.4rem;opacity:.6;}
+
+        /* ── Weekly goal bars ── */
+        .goal-item{margin-bottom:.8rem;}
+        .goal-item:last-child{margin-bottom:0;}
+        .goal-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.4rem;}
+        .goal-label{font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--text-dim);}
+        .goal-val{font-family:'Rajdhani',sans-serif;font-size:.9rem;font-weight:700;}
+        .goal-bar{height:5px;background:rgba(255,255,255,.06);border-radius:5px;overflow:hidden;}
+        .goal-fill{height:100%;border-radius:5px;transition:width 1s ease;}
+
+        /* ── Share button ── */
+        .share-float{position:fixed;bottom:80px;right:24px;width:46px;height:46px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:12px;font-size:1.1rem;cursor:pointer;z-index:9990;box-shadow:0 6px 20px rgba(99,102,241,0.4);transition:transform .2s;display:flex;align-items:center;justify-content:center;}
+        .share-float:hover{transform:translateY(-3px);}
+
+        /* ── Referral panel ── */
+        .ref-card{background:rgba(34,211,238,.04);border:1px solid rgba(34,211,238,.2);border-radius:12px;padding:1.2rem 1.4rem;margin-bottom:1.5rem;}
+        .ref-code{font-family:'Rajdhani',sans-serif;font-size:1.8rem;font-weight:700;letter-spacing:6px;color:var(--accent2);cursor:pointer;transition:.2s;user-select:all;}
+        .ref-code:hover{color:var(--text);}
+        .ref-link{font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--dim);word-break:break-all;margin-top:.3rem;}
+
+        /* ── Feedback widget ── */
+        .feedback-fab{position:fixed;bottom:24px;left:calc(280px + 24px);background:rgba(8,14,28,.97);border:1px solid var(--border);border-radius:12px;padding:.5rem .9rem;font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--dim);cursor:pointer;z-index:9988;transition:.2s;display:flex;align-items:center;gap:.4rem;}
+        .feedback-fab:hover{border-color:var(--accent);color:var(--text);}
+        .feedback-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:99998;align-items:center;justify-content:center;backdrop-filter:blur(6px);}
+        .feedback-box{background:rgba(8,14,28,.99);border:1px solid var(--border);border-radius:16px;padding:2rem;max-width:400px;width:90%;position:relative;}
+        .fb-title{font-family:'Rajdhani',sans-serif;font-size:1.2rem;font-weight:700;margin-bottom:1.2rem;}
+        .fb-types{display:flex;gap:.5rem;margin-bottom:1rem;}
+        .fb-type-btn{flex:1;padding:.5rem;border:1px solid var(--border);border-radius:8px;font-family:'Share Tech Mono',monospace;font-size:.6rem;background:none;color:var(--dim);cursor:pointer;transition:.2s;}
+        .fb-type-btn.active,.fb-type-btn:hover{border-color:var(--accent);color:var(--accent2);background:rgba(99,102,241,.08);}
+        .fb-textarea{width:100%;background:rgba(255,255,255,.03);border:1px solid var(--border);color:var(--text);padding:.8rem;border-radius:10px;font-family:'Exo 2',sans-serif;font-size:.9rem;resize:vertical;min-height:100px;outline:none;transition:border-color .2s;}
+        .fb-textarea:focus{border-color:var(--accent);}
+        .fb-submit{width:100%;margin-top:.8rem;padding:.7rem;background:linear-gradient(135deg,var(--accent),#4f46e5);border:none;color:#fff;border-radius:10px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;letter-spacing:1.5px;cursor:pointer;transition:.2s;}
+        .fb-submit:hover{transform:translateY(-1px);}
+    </style>
+    <script src="{{ url_for('static', filename='motion.js') }}" defer></script>
+</head>
+<body id="body">
+<div class="scanline"></div>
+<button class="menu-toggle" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+
+<nav class="sidebar">
+    <div class="sidebar-logo">CORE <span>OS</span></div>
+    <div class="hud-card">
+        <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--gold);font-weight:700;margin-bottom:5px;font-family:'Share Tech Mono',monospace;">
+            <span>LVL {{ lvl }}</span><span>{{ balance }} CR</span>
+        </div>
+        <div class="xp-bar"><div class="xp-fill" style="width:{{ lvl_pc }}%"></div></div>
+    </div>
+    <div class="nav-links">
+        <a href="{{ url_for('dashboard.index') }}" class="nav-link active">📊 Dashboard</a>
+        <a href="{{ url_for('tasks.tasks') }}"     class="nav-link">📅 Task Matrix</a>
+        <a href="{{ url_for('habits.habits') }}"   class="nav-link">⏳ Habit Sync</a>
+        <a href="{{ url_for('wellness.wellness') }}" class="nav-link">🧠 Neural Lab</a>
+        <a href="{{ url_for('expenses.expenses') }}" class="nav-link">💸 Wallet</a>
+        <a href="{{ url_for('shop.shop') }}"       class="nav-link">🛒 Shop</a>
+        <a href="{{ url_for('profile.profile') }}" class="nav-link">👤 Profile</a>
+    </div>
+    <form method="POST" action="{{ url_for('auth.logout') }}" style="margin:0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="disconnect-btn">⏻ DISCONNECT</button>
+    </form>
+</nav>
+
+<main class="main-content">
+
+    <!-- ── Header ── -->
+    <div class="page-header" style="margin-bottom:1.5rem;">
+        <div>
+            <div class="greeting">{{ greeting | upper }}, {{ name | upper }}</div>
+            <div class="identity-badge" style="background:{{ identity.color }}14;color:{{ identity.color }};border-color:{{ identity.color }}44;">
+                {{ identity.icon }}&nbsp;{{ identity.title | upper }}
+            </div>
+            <h1 style="margin:0;">COMMAND CENTER</h1>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.5rem;">
+            {% if login_streak >= 2 %}
+            <div class="login-streak-badge">
+                🔥 <span class="login-streak-num">{{ login_streak }}</span>
+                DAY STREAK
+                {% if login_streak >= 7 %}&nbsp;🏆{% endif %}
+            </div>
+            {% endif %}
+            <div style="font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--text-dim);text-align:right;">
+                <div><span id="live-clock">--:--:--</span></div>
+                <div style="margin-top:4px;color:var(--accent2);">PROD_SCORE: <span id="prod-score-ticker">{{ prod.score }}</span>/100</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Overdue alert ── -->
+    {% if overdue_tasks > 0 %}
+    <div class="overdue-alert">
+        <span>⚠️</span>
+        <span><strong>{{ overdue_tasks }} overdue task{{ 's' if overdue_tasks > 1 else '' }}</strong> — threat score elevated</span>
+        <a href="{{ url_for('tasks.tasks') }}">VIEW →</a>
+    </div>
+    {% endif %}
+
+    <!-- ── Emotional feedback banners ── -->
+    {% if banners %}
+    <div style="margin-bottom:1rem;">
+        {% for b in banners %}
+        <div class="feedback-banner fb-{{ b.type }}">
+            <span class="fb-icon">{{ b.icon }}</span>
+            <span class="fb-text">{{ b.text }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if is_new_user %}
+    <!-- ── NEW USER ONBOARDING ── -->
+    <div class="glass-card" style="border-color:rgba(99,102,241,.35);">
+        <div class="empty-hero">
+            <span class="empty-hero-icon">🚀</span>
+            <div class="empty-hero-title">CORE OS Initialized</div>
+            <div class="empty-hero-text">
+                Welcome, {{ name }}. Your command center is ready.<br>
+                Start by adding tasks, logging habits, or tracking your expenses.<br>
+                Every action earns XP and builds your operative profile.
+            </div>
+            <div class="empty-cta-grid">
+                <a href="{{ url_for('tasks.tasks') }}" class="empty-cta" style="background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.35);color:var(--accent2);">➕ Add First Task</a>
+                <a href="{{ url_for('habits.habits') }}" class="empty-cta" style="background:rgba(34,211,238,.08);border-color:rgba(34,211,238,.25);color:var(--accent2);">⚡ Create Habit</a>
+                <a href="{{ url_for('expenses.expenses') }}" class="empty-cta" style="background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.25);color:var(--gold);">💸 Log Expense</a>
+                <a href="{{ url_for('wellness.wellness') }}" class="empty-cta" style="background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.25);color:var(--success);">🧠 Log Wellness</a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+
+    <!-- ── Quick actions ── -->
+    <div class="qa-grid">
+        <a href="{{ url_for('tasks.tasks') }}"       class="qa-btn">➕ NEW_TASK</a>
+        <a href="{{ url_for('habits.habits') }}"     class="qa-btn">⚡ SYNC_HABIT</a>
+        <a href="{{ url_for('expenses.expenses') }}" class="qa-btn">💸 LOG_EXPENSE</a>
+        <a href="{{ url_for('wellness.wellness') }}" class="qa-btn">🧠 UPDATE_WELLNESS</a>
+    </div>
+
+    <!-- ── Intelligence: Reminders + Suggestions ── -->
+    {% if reminders or suggestions %}
+    <div class="intel-grid">
+
+        {% if suggestions %}
+        <div class="glass-card">
+            <div class="sh">[ SUGGESTED_ACTIONS ]</div>
+            {% for s in suggestions %}
+            <div class="sug-item">
+                <span class="sug-icon">{{ s.icon }}</span>
+                <div class="sug-body">
+                    <div class="sug-title" style="color:{{ s.color }};">{{ s.title }}</div>
+                    <div class="sug-desc">{{ s.desc }}</div>
+                </div>
+                <a href="{{ url_for(s.endpoint) }}" class="sug-link">{{ s.label }} →</a>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="glass-card">
+            {% if reminders %}
+            <div class="sh">[ ACTIVE_REMINDERS ]</div>
+            {% for r in reminders %}
+            <div class="rem-item rem-{{ r.urgency }}">
+                <span class="rem-icon">{{ r.icon }}</span>
+                <span class="rem-text">{{ r.text }}</span>
+                <a href="{{ url_for(r.endpoint) }}" class="rem-link">→</a>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if login_streak >= 2 %}
+            <div style="margin-top:{% if reminders %}1rem{% else %}0{% endif %};">
+                {% if reminders %}<div class="sh" style="margin-top:.8rem;">[ LOGIN_STREAK ]</div>{% else %}<div class="sh">[ LOGIN_STREAK ]</div>{% endif %}
+                <div style="display:flex;align-items:center;gap:1rem;padding:.8rem;background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.15);border-radius:10px;">
+                    <div style="font-size:2rem;">🔥</div>
+                    <div>
+                        <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold);line-height:1;">{{ login_streak }} days</div>
+                        <div style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--text-dim);margin-top:3px;">
+                            {% if login_streak >= 30 %}You're on a legendary run. Don't stop now.
+                            {% elif login_streak >= 14 %}Two weeks straight. Elite consistency.
+                            {% elif login_streak >= 7 %}One week in. Keep the chain unbroken.
+                            {% elif login_streak >= 3 %}Building momentum. Come back tomorrow.
+                            {% else %}Day {{ login_streak }}. The streak has started.{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if not reminders and login_streak < 2 %}
+            <div class="sh">[ SYSTEM_STATUS ]</div>
+            <div style="text-align:center;padding:1.5rem;font-family:'Share Tech Mono',monospace;font-size:.65rem;color:var(--text-dim);">
+                <div style="font-size:1.8rem;margin-bottom:.5rem;">✅</div>
+                ALL_SYSTEMS_NOMINAL<br>
+                <span style="font-size:.58rem;">No urgent reminders right now.</span>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+    {% endif %}
+
+    <!-- ── Top stat cards ── -->
+    <div class="db-grid-4">
+        <div class="glass-card mc mc-gold">
+            <span class="mc-icon">🎮</span>
+            <div class="mc-val" style="color:var(--gold);" id="cnt-xp">{{ total_xp }}</div>
+            <div class="mc-lbl">TOTAL XP</div>
+            <div class="mc-sub">Level {{ lvl }} Operative</div>
+            {% if x_data.xp_this_week > 0 %}
+            <span class="mc-trend trend-up">+{{ x_data.xp_this_week }} this week</span>
+            {% endif %}
+        </div>
+
+        <div class="glass-card mc mc-green">
+            <span class="mc-icon">✅</span>
+            <div class="mc-val" style="color:var(--success);" id="cnt-tasks">{{ completed_tasks }}</div>
+            <div class="mc-lbl">TASKS DONE</div>
+            <div class="mc-sub">{{ t_data.done_today }} completed today</div>
+            {% if t_data.week_trend == 'up' %}<span class="mc-trend trend-up">↑ vs last week</span>
+            {% elif t_data.week_trend == 'down' %}<span class="mc-trend trend-down">↓ vs last week</span>
+            {% else %}<span class="mc-trend trend-same">→ same as last week</span>{% endif %}
+        </div>
+
+        <div class="glass-card mc mc-blue">
+            <span class="mc-icon">⏳</span>
+            <div class="mc-val" style="color:var(--accent);" id="cnt-streak">{{ h_data.top_streak }}</div>
+            <div class="mc-lbl">BEST STREAK</div>
+            <div class="mc-sub">{{ h_data.synced_today }}/{{ h_data.total }} synced today</div>
+            {% if h_data.consistency > 0 %}
+            <span class="mc-trend {% if h_data.consistency >= 70 %}trend-up{% elif h_data.consistency >= 40 %}trend-same{% else %}trend-down{% endif %}">{{ h_data.consistency }}% consistency</span>
+            {% endif %}
+        </div>
+
+        <div class="glass-card mc mc-cyan">
+            <span class="mc-icon">💰</span>
+            <div class="mc-val" style="color:var(--accent2);">{{ balance }}</div>
+            <div class="mc-lbl">CREDITS (CR)</div>
+            <div class="mc-sub">{{ e_data.this_month | round(0) | int }} spent this month</div>
+            {% if e_data.budget_pct > 90 %}<span class="mc-trend trend-down">{{ e_data.budget_pct }}% of budget</span>
+            {% elif e_data.budget_pct > 60 %}<span class="mc-trend trend-same">{{ e_data.budget_pct }}% of budget</span>
+            {% else %}<span class="mc-trend trend-up">{{ e_data.budget_pct }}% of budget</span>{% endif %}
+        </div>
+    </div>
+
+    <!-- ── Threat + Productivity ── -->
+    <div class="db-grid-2">
+        <!-- Threat meter -->
+        <div class="glass-card" style="border-color:{{ threat.color }}44;">
+            <div class="sh">[ THREAT_LEVEL_METER ]</div>
+            <div style="display:flex;align-items:flex-end;gap:1rem;margin-bottom:.5rem;">
+                <div class="threat-score-big" style="color:{{ threat.color }};" id="threat-num">0</div>
+                <div style="padding-bottom:.4rem;">
+                    <div style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--text-dim);">/100</div>
+                    <div style="font-family:'Share Tech Mono',monospace;font-size:.6rem;color:{{ threat.color }};letter-spacing:1px;">{{ threat.label }}</div>
+                </div>
+                <div style="margin-left:auto;font-family:'Rajdhani',sans-serif;font-size:.9rem;font-weight:700;padding:.4rem 1rem;border-radius:8px;background:{{ threat.color }}22;color:{{ threat.color }};border:1px solid {{ threat.color }}44;">{{ threat.level }}</div>
+            </div>
+            <div class="threat-bar-track">
+                <div class="threat-bar-fill" id="threat-bar" style="width:0%;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:1rem;">
+                <span style="font-family:'Share Tech Mono',monospace;font-size:.5rem;color:var(--success);">STABLE</span>
+                <span style="font-family:'Share Tech Mono',monospace;font-size:.5rem;color:var(--gold);">ELEVATED</span>
+                <span style="font-family:'Share Tech Mono',monospace;font-size:.5rem;color:var(--danger);">CRITICAL</span>
+            </div>
+            <div class="threat-breakdown">
+                <div class="tb-item">
+                    <span class="tb-icon">⚠️</span>
+                    <div>
+                        <div class="tb-val" style="color:{% if threat.overdue>0 %}var(--danger){% else %}var(--success){% endif %};">{{ threat.overdue }}</div>
+                        <div class="tb-lbl">OVERDUE</div>
+                    </div>
+                </div>
+                <div class="tb-item">
+                    <span class="tb-icon">🔴</span>
+                    <div>
+                        <div class="tb-val" style="color:{% if threat.critical>0 %}var(--gold){% else %}var(--success){% endif %};">{{ threat.critical }}</div>
+                        <div class="tb-lbl">CRITICAL_TASKS</div>
+                    </div>
+                </div>
+                <div class="tb-item">
+                    <span class="tb-icon">💸</span>
+                    <div>
+                        <div class="tb-val" style="color:{% if threat.budget_pct>90 %}var(--danger){% elif threat.budget_pct>70 %}var(--gold){% else %}var(--success){% endif %};">{{ threat.budget_pct }}%</div>
+                        <div class="tb-lbl">BUDGET_USED</div>
+                    </div>
+                </div>
+                <div class="tb-item">
+                    <span class="tb-icon">🧠</span>
+                    <div>
+                        <div class="tb-val" style="color:{% if threat.wellness_avg and threat.wellness_avg<4 %}var(--danger){% elif threat.wellness_avg and threat.wellness_avg<6 %}var(--gold){% else %}var(--success){% endif %};">{{ threat.wellness_avg or 'N/A' }}</div>
+                        <div class="tb-lbl">WELLNESS_AVG</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Productivity score + task ring -->
+        <div class="glass-card">
+            <div class="sh">[ PRODUCTIVITY_SCORE ]</div>
+            <div class="prod-ring-wrap">
+                <div class="prod-ring">
+                    <svg viewBox="0 0 100 100" width="100" height="100">
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="8"/>
+                        <circle cx="50" cy="50" r="42" fill="none"
+                            stroke="{{ prod.color }}" stroke-width="8"
+                            stroke-linecap="round"
+                            stroke-dasharray="263.9"
+                            stroke-dashoffset="263.9"
+                            id="prod-ring"/>
+                    </svg>
+                    <div class="prod-ring-center">
+                        <div class="prod-score-num" style="color:{{ prod.color }};" id="prod-num">0</div>
+                        <div class="prod-score-lbl">{{ prod.grade }}</div>
+                    </div>
+                </div>
+                <div style="flex:1;font-family:'Share Tech Mono',monospace;font-size:.6rem;line-height:2.4;">
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="color:var(--text-dim);">TASKS</span>
+                        <span style="color:var(--success);">{{ prod.task_score }}/30</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="color:var(--text-dim);">HABITS</span>
+                        <span style="color:var(--accent2);">{{ prod.habit_score }}/30</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="color:var(--text-dim);">WELLNESS</span>
+                        <span style="color:var(--gold);">{{ prod.wellness_score }}/20</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="color:var(--text-dim);">BUDGET</span>
+                        <span style="color:var(--success);">{{ prod.budget_score }}/20</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Task completion ring sub-section -->
+            <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);">
+                <div style="display:flex;justify-content:space-between;margin-bottom:.5rem;">
+                    <span style="font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--text-dim);">OBJECTIVE_COMPLETION</span>
+                    <span style="font-family:'Rajdhani',monospace;font-size:.9rem;font-weight:700;color:var(--accent2);">{{ completion_pct }}%</span>
+                </div>
+                <div style="height:6px;background:rgba(255,255,255,.05);border-radius:10px;overflow:hidden;">
+                    <div style="height:100%;width:{{ completion_pct }}%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:10px;transition:width 1.2s ease;box-shadow:0 0 8px var(--accent);"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:.5rem;font-family:'Share Tech Mono',monospace;font-size:.56rem;color:var(--text-dim);">
+                    <span>{{ completed_tasks }} done</span>
+                    <span>{{ active_tasks }} active</span>
+                    <span {% if overdue_tasks > 0 %}style="color:var(--danger);"{% endif %}>{{ overdue_tasks }} overdue</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Charts row ── -->
+    <div class="db-grid-2-1">
+        <div class="glass-card">
+            <div class="sh">[ HABIT_SYNC_HISTORY — 7 DAYS ]</div>
+            {% if h_data.total > 0 %}
+            <div style="height:200px;"><canvas id="habitChart"></canvas></div>
+            <div style="display:flex;justify-content:space-between;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--text-dim);">
+                <span>This week: <strong style="color:var(--accent2);">{{ h_data.this_week }}</strong> syncs</span>
+                <span>Last week: <strong style="color:var(--text);">{{ h_data.last_week }}</strong></span>
+                <span>Consistency: <strong style="color:{% if h_data.consistency>=70%}var(--success){%elif h_data.consistency>=40%}var(--gold){%else%}var(--danger){%endif%};">{{ h_data.consistency }}%</strong></span>
+            </div>
+            {% else %}
+            <div style="text-align:center;padding:3rem;color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:.7rem;">
+                <div style="font-size:2rem;margin-bottom:.8rem;">⏳</div>
+                NO_HABIT_DATA<br>
+                <a href="{{ url_for('habits.habits') }}" style="color:var(--accent2);text-decoration:none;margin-top:.5rem;display:inline-block;">Initialize habits →</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="glass-card">
+            <div class="sh">[ RESOURCE_ALLOCATION ]</div>
+            {% if e_data.cat_labels %}
+            <div style="height:200px;"><canvas id="expenseChart"></canvas></div>
+            <div style="margin-top:.8rem;font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--text-dim);text-align:center;">
+                {{ e_data.daily_avg }} avg/day this month
+            </div>
+            {% else %}
+            <div style="text-align:center;padding:3rem;color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:.7rem;">
+                <div style="font-size:2rem;margin-bottom:.8rem;">💸</div>
+                NO_EXPENSE_DATA<br>
+                <a href="{{ url_for('expenses.expenses') }}" style="color:var(--accent2);text-decoration:none;margin-top:.5rem;display:inline-block;">Log expenses →</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+
+    <!-- ── Live stat highlights carousel ── -->
+    {% if not is_new_user %}
+    <div class="glass-card" style="margin-bottom:1.5rem;overflow:hidden;">
+        <div class="sh">[ OPERATIVE_STATS_FEED ]</div>
+        <div class="ach-row" id="stats-carousel" style="margin:0;">
+            <div style="flex-shrink:0;display:inline-flex;align-items:center;gap:.6rem;padding:.5rem 1.2rem;border-radius:20px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--accent2);">⚡ LVL {{ lvl }} OPERATIVE</div>
+            <div style="flex-shrink:0;display:inline-flex;align-items:center;gap:.6rem;padding:.5rem 1.2rem;border-radius:20px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--success);">✅ {{ completed_tasks }} TASKS DONE</div>
+            <div style="flex-shrink:0;display:inline-flex;align-items:center;gap:.6rem;padding:.5rem 1.2rem;border-radius:20px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--gold);">🔥 {{ h_data.top_streak }}D STREAK</div>
+            <div style="flex-shrink:0;display:inline-flex;align-items:center;gap:.6rem;padding:.5rem 1.2rem;border-radius:20px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.2);font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--accent2);">🎮 {{ total_xp }} XP TOTAL</div>
+            <div style="flex-shrink:0;display:inline-flex;align-items:center;gap:.6rem;padding:.5rem 1.2rem;border-radius:20px;background:rgba({{ '16,185,129' if prod.score >= 60 else '251,191,36' if prod.score >= 40 else '244,63,94' }},.08);border:1px solid rgba({{ '16,185,129' if prod.score >= 60 else '251,191,36' if prod.score >= 40 else '244,63,94' }},.2);font-family:'Share Tech Mono',monospace;font-size:.62rem;color:{{ 'var(--success)' if prod.score >= 60 else 'var(--gold)' if prod.score >= 40 else 'var(--danger)' }};">📊 PROD {{ prod.score }}/100</div>
+            <div style="flex-shrink:0;display:inline-flex;align-items:center;gap:.6rem;padding:.5rem 1.2rem;border-radius:20px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--accent2);">⏳ {{ h_data.synced_today }}/{{ h_data.total }} HABITS</div>
+            {% if login_streak >= 2 %}<div style="flex-shrink:0;display:inline-flex;align-items:center;gap:.6rem;padding:.5rem 1.2rem;border-radius:20px;background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--danger);">🔥 {{ login_streak }}D LOGIN STREAK</div>{% endif %}
+            <div style="flex-shrink:0;display:inline-flex;align-items:center;gap:.6rem;padding:.5rem 1.2rem;border-radius:20px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--accent);">{{ identity.icon }} {{ identity.title | upper }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── AI Insights ── -->
+    {% if insights %}
+    <div class="glass-card" style="margin-bottom:1.5rem;">
+        <div class="sh">[ INTELLIGENCE_FEED — PATTERN_ANALYSIS ]</div>
+        {% for ins in insights %}
+        <div class="insight-item insight-{{ ins.type }}">
+            <span class="insight-icon">{{ ins.icon }}</span>
+            <span class="insight-title">{{ ins.title }}</span>
+            <div class="insight-body">{{ ins.body }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ── Achievements + progress hints ── -->
+    <div class="db-grid-2">
+        <!-- Recent achievements with tier summary -->
+        <div class="glass-card">
+            <div class="sh">[ RECENT_ACHIEVEMENTS ]
+                
+            </div>
+            <!-- Tier summary -->
+            <div class="tier-progress" style="margin-bottom:1.2rem;">
+                {% for tier, info in ach_summary.by_tier.items() %}
+                <div class="tier-box" style="background:{{ info.color }}0a;border-color:{{ info.color }}30;">
+                    <div class="tier-box-val" style="color:{{ info.color }};">{{ info.unlocked }}/{{ info.total }}</div>
+                    <div class="tier-box-lbl" style="color:{{ info.color }};">{{ tier | upper }}</div>
+                    <div class="tier-bar" style="background:{{ info.color }};width:{{ info.pct }}%;"></div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if recent_achievements %}
+            <div style="display:flex;flex-direction:column;gap:.6rem;">
+                {% for ua in recent_achievements %}
+                <div class="ach-badge">
+                    <span class="ach-icon">{{ ua.achievement.icon }}</span>
+                    <div>
+                        <div class="ach-name">{{ ua.achievement.name }}</div>
+                        <div class="ach-desc">{{ ua.achievement.description }}</div>
+                    </div>
+                    <div style="margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--gold);white-space:nowrap;">+{{ ua.achievement.xp_reward }} XP</div>
+                </div>
+                {% endfor %}
+            </div>
+            <a href="{{ url_for('profile.profile') }}" style="display:block;text-align:center;margin-top:1rem;font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--accent2);text-decoration:none;">VIEW ALL →</a>
+            {% else %}
+            <div style="text-align:center;padding:2rem;font-family:'Share Tech Mono',monospace;font-size:.65rem;color:var(--text-dim);">
+                <div style="font-size:1.8rem;margin-bottom:.6rem;">🏆</div>
+                NO_ACHIEVEMENTS_YET<br>
+                <span style="font-size:.58rem;">Complete tasks and sync habits to unlock.</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Achievement progress hints -->
+        <div class="glass-card">
+            <div class="sh">[ NEXT_MILESTONES ]</div>
+            {% if hints %}
+            {% for h in hints %}
+            <div class="hint-item">
+                <div class="hint-header">
+                    <span class="hint-name">{{ h.icon }} {{ h.name }}</span>
+                    <span class="hint-pct">{{ h.progress_pct }}%</span>
+                </div>
+                <div class="hint-bar">
+                    <div class="hint-fill" style="width:{{ h.progress_pct }}%;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                    <div class="hint-sub">{{ h.progress_label }}</div>
+                    <div class="hint-sub" style="color:var(--gold);">+{{ h.xp_reward }} XP</div>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align:center;padding:2.5rem;font-family:'Share Tech Mono',monospace;font-size:.65rem;color:var(--text-dim);">
+                <div style="font-size:1.8rem;margin-bottom:.6rem;">🎯</div>
+                {% if total_tasks == 0 %}
+                Start completing tasks to track progress.
+                {% else %}
+                All close milestones reached. Keep going!
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── XP level card ── -->
+    <div class="db-grid-3" style="margin-bottom:0;">
+        <div class="glass-card mc mc-gold">
+            <div class="sh" style="margin-bottom:.8rem;">[ XP_PROGRESSION ]</div>
+            <div style="display:flex;align-items:baseline;gap:.5rem;margin-bottom:.8rem;">
+                <div style="font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:var(--gold);">LVL {{ lvl }}</div>
+                <div style="font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--text-dim);">{{ lvl_pc }}/100 XP to next</div>
+            </div>
+            <div style="height:6px;background:rgba(255,255,255,.05);border-radius:10px;overflow:hidden;margin-bottom:.5rem;">
+                <div style="height:100%;width:{{ lvl_pc }}%;background:linear-gradient(90deg,var(--gold),#f97316);border-radius:10px;transition:width 1.2s ease;"></div>
+            </div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--text-dim);">
+                Multiplier: <span style="color:var(--gold);">{{ x_data.multiplier_label }}</span>
+                {% if x_data.days_to_next_level %}· ~{{ x_data.days_to_next_level }}d to LVL {{ lvl + 1 }}{% endif %}
+            </div>
+        </div>
+
+        <!-- Weekly goals card -->
+        <div class="glass-card">
+            <div class="sh" style="margin-bottom:.8rem;">[ WEEKLY_GOALS ]</div>
+            {% set twg = weekly_task_goal %}
+            {% set hwg = weekly_habit_goal %}
+            {% set task_pct  = [[((t_data.this_week / twg * 100) | round | int), 100] | min, 0] | max %}
+            {% set habit_pct = [[((h_data.this_week / hwg * 100) | round | int), 100] | min, 0] | max %}
+            <div class="goal-item">
+                <div class="goal-header">
+                    <span class="goal-label">TASKS THIS WEEK</span>
+                    <span class="goal-val" style="color:{% if task_pct>=100 %}var(--success){% elif task_pct>=60 %}var(--accent2){% else %}var(--text-dim){% endif %};">{{ t_data.this_week }}/{{ twg }}</span>
+                </div>
+                <div class="goal-bar"><div class="goal-fill" style="width:{{ task_pct }}%;background:{% if task_pct>=100 %}var(--success){% elif task_pct>=60 %}var(--accent2){% else %}var(--accent){% endif %};"></div></div>
+            </div>
+            <div class="goal-item">
+                <div class="goal-header">
+                    <span class="goal-label">HABIT SYNCS THIS WEEK</span>
+                    <span class="goal-val" style="color:{% if habit_pct>=100 %}var(--success){% elif habit_pct>=60 %}var(--accent2){% else %}var(--text-dim){% endif %};">{{ h_data.this_week }}/{{ hwg }}</span>
+                </div>
+                <div class="goal-bar"><div class="goal-fill" style="width:{{ habit_pct }}%;background:{% if habit_pct>=100 %}var(--success){% elif habit_pct>=60 %}var(--accent2){% else %}var(--accent){% endif %};"></div></div>
+            </div>
+            <a href="{{ url_for('profile.profile') }}" style="display:block;text-align:center;margin-top:.8rem;font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--accent2);text-decoration:none;">EDIT GOALS →</a>
+        </div>
+
+        {% if w_data.has_data %}
+        <div class="glass-card mc mc-cyan">
+            <div class="sh" style="margin-bottom:.8rem;">[ WELLNESS_SIGNALS ]</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;">
+                <div style="text-align:center;">
+                    <div style="font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:700;color:var(--gold);">{{ w_data.avg_energy }}</div>
+                    <div style="font-family:'Share Tech Mono',monospace;font-size:.52rem;color:var(--text-dim);">ENERGY</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:700;color:var(--success);">{{ w_data.avg_clarity }}</div>
+                    <div style="font-family:'Share Tech Mono',monospace;font-size:.52rem;color:var(--text-dim);">CLARITY</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:700;color:var(--accent2);">{{ w_data.avg_mood }}</div>
+                    <div style="font-family:'Share Tech Mono',monospace;font-size:.52rem;color:var(--text-dim);">MOOD</div>
+                </div>
+            </div>
+            <div style="margin-top:.8rem;font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--text-dim);">
+                Overall avg: <span style="color:{% if w_data.overall_avg>=7%}var(--success){%elif w_data.overall_avg>=5%}var(--accent2){%else%}var(--danger){%endif%};">{{ w_data.overall_avg }}/10</span>
+                · {{ w_data.log_count }} sessions logged
+            </div>
+        </div>
+        {% else %}
+        <div class="glass-card mc mc-cyan" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+            <div style="font-size:1.8rem;margin-bottom:.6rem;">🧠</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--text-dim);">No wellness data yet</div>
+            <a href="{{ url_for('wellness.wellness') }}" style="margin-top:.6rem;font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--accent2);text-decoration:none;">Log biometrics →</a>
+        </div>
+        {% endif %}
+
+        {% if h_data.at_risk %}
+        <div class="glass-card mc mc-red">
+            <div class="sh" style="margin-bottom:.8rem;">[ STREAK_AT_RISK ]</div>
+            {% for h in h_data.at_risk %}
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-top:1px solid rgba(255,255,255,.04);">
+                <div>
+                    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;">{{ h.name }}</div>
+                    <div style="font-family:'Share Tech Mono',monospace;font-size:.56rem;color:var(--text-dim);">{{ h.streak }}d streak at risk</div>
+                </div>
+                <span style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--danger);">SYNC_TODAY</span>
+            </div>
+            {% endfor %}
+            <a href="{{ url_for('habits.habits') }}" style="display:block;margin-top:.8rem;font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--accent2);text-decoration:none;text-align:center;">PROTECT STREAKS →</a>
+        </div>
+        {% elif h_data.total > 0 %}
+        <div class="glass-card mc mc-green">
+            <div class="sh" style="margin-bottom:.8rem;">[ HABIT_STATUS ]</div>
+            <div style="font-family:'Rajdhani',sans-serif;font-size:1.8rem;font-weight:700;color:var(--success);">{{ h_data.synced_today }}/{{ h_data.total }}</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--text-dim);margin-bottom:.8rem;">SYNCED_TODAY</div>
+            {% if h_data.best_habit %}
+            <div style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--text-dim);">
+                Best: <span style="color:var(--success);">{{ h_data.best_habit.name }}</span> ({{ h_data.best_habit.streak }}d)
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="glass-card mc mc-green" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+            <div style="font-size:1.8rem;margin-bottom:.6rem;">⏳</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--text-dim);">No habits yet</div>
+            <a href="{{ url_for('habits.habits') }}" style="margin-top:.6rem;font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--accent2);text-decoration:none;">Create habits →</a>
+        </div>
+        {% endif %}
+    </div>
+
+
+    <!-- ── Recent Activity Feed ── -->
+    {% if not is_new_user %}
+    <div class="db-grid-2" style="margin-bottom:0;">
+        <div class="glass-card">
+            <div class="sh">[ RECENT_ACTIVITY ]</div>
+            <div class="activity-feed" id="activity-feed">
+                {% if t_data.done_today > 0 %}
+                <div class="activity-item">
+                    <div class="activity-dot activity-dot-success"></div>
+                    <div class="activity-content">
+                        <div class="activity-text">{{ t_data.done_today }} task{{ 's' if t_data.done_today > 1 else '' }} completed today</div>
+                        <div class="activity-time">TODAY</div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if h_data.synced_today > 0 %}
+                <div class="activity-item">
+                    <div class="activity-dot activity-dot-accent"></div>
+                    <div class="activity-content">
+                        <div class="activity-text">{{ h_data.synced_today }} habit{{ 's' if h_data.synced_today > 1 else '' }} synced today</div>
+                        <div class="activity-time">TODAY</div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if recent_achievements %}
+                {% for ua in recent_achievements[:2] %}
+                <div class="activity-item">
+                    <div class="activity-dot activity-dot-gold"></div>
+                    <div class="activity-content">
+                        <div class="activity-text">{{ ua.achievement.icon }} {{ ua.achievement.name }} unlocked</div>
+                        <div class="activity-time">+{{ ua.achievement.xp_reward }} XP</div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% if overdue_tasks > 0 %}
+                <div class="activity-item">
+                    <div class="activity-dot activity-dot-danger"></div>
+                    <div class="activity-content">
+                        <div class="activity-text">{{ overdue_tasks }} task{{ 's' if overdue_tasks > 1 else '' }} overdue — needs attention</div>
+                        <div class="activity-time"><a href="{{ url_for('tasks.tasks') }}" style="color:var(--danger);text-decoration:none;">VIEW →</a></div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if login_streak >= 2 %}
+                <div class="activity-item">
+                    <div class="activity-dot activity-dot-gold"></div>
+                    <div class="activity-content">
+                        <div class="activity-text">🔥 {{ login_streak }}-day login streak active</div>
+                        <div class="activity-time">KEEP IT GOING</div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if x_data.xp_this_week > 0 %}
+                <div class="activity-item">
+                    <div class="activity-dot activity-dot-cyan"></div>
+                    <div class="activity-content">
+                        <div class="activity-text">+{{ x_data.xp_this_week }} XP earned this week</div>
+                        <div class="activity-time">THIS WEEK</div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if t_data.done_today == 0 and h_data.synced_today == 0 and not recent_achievements and overdue_tasks == 0 %}
+                <div style="text-align:center;padding:2rem;font-family:'Share Tech Mono',monospace;font-size:.65rem;color:var(--text-dim);">
+                    <div style="font-size:1.5rem;margin-bottom:.5rem;">📭</div>
+                    No activity yet today.<br>
+                    <span style="font-size:.58rem;">Complete tasks or sync habits to see updates here.</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Smart Summary Panel -->
+        <div class="glass-card">
+            <div class="sh">[ TODAY_AT_A_GLANCE ]</div>
+            <div class="quick-stats-row" style="grid-template-columns:1fr 1fr;margin-bottom:1rem;">
+                <div class="qs-item">
+                    <div class="qs-val" style="color:var(--success);">{{ t_data.done_today }}</div>
+                    <div class="qs-lbl">TASKS DONE</div>
+                </div>
+                <div class="qs-item">
+                    <div class="qs-val" style="color:var(--accent2);">{{ h_data.synced_today }}</div>
+                    <div class="qs-lbl">HABITS SYNCED</div>
+                </div>
+                <div class="qs-item">
+                    <div class="qs-val" style="color:var(--gold);">{{ login_streak }}</div>
+                    <div class="qs-lbl">DAY STREAK</div>
+                </div>
+                <div class="qs-item">
+                    <div class="qs-val" style="color:{% if prod.score >= 70 %}var(--success){% elif prod.score >= 40 %}var(--gold){% else %}var(--danger){% endif %};">{{ prod.score }}</div>
+                    <div class="qs-lbl">PROD SCORE</div>
+                </div>
+            </div>
+            <!-- Smart summary text -->
+            <div style="padding:.9rem 1rem;background:rgba(99,102,241,.04);border:1px solid rgba(99,102,241,.12);border-radius:10px;margin-top:.5rem;">
+                <div style="font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--text-dim);letter-spacing:1px;margin-bottom:.5rem;">// SYSTEM SUMMARY</div>
+                <div style="font-size:.82rem;color:var(--text);line-height:1.7;font-family:'Exo 2',sans-serif;">
+                    {% if prod.score >= 80 %}
+                    🟢 Exceptional output today. You're operating at peak efficiency — keep this momentum going.
+                    {% elif prod.score >= 60 %}
+                    🔵 Solid performance. A few more completions will push you into elite territory.
+                    {% elif prod.score >= 40 %}
+                    🟡 Getting there. Focus on your highest-priority tasks to lift your score.
+                    {% else %}
+                    🔴 Low activity detected. Starting with one small task creates momentum fast.
+                    {% endif %}
+                </div>
+            </div>
+            {% if x_data.xp_this_week > 0 %}
+            <div style="margin-top:.8rem;font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--text-dim);text-align:center;">
+                +{{ x_data.xp_this_week }} XP earned this week · {{ x_data.multiplier_label }} multiplier active
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Referral system ── -->
+    {% if referral_stats.referral_code %}
+    <div class="ref-card" style="margin-top:1.5rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+            <div>
+                <div style="font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--accent2);letter-spacing:2px;margin-bottom:.4rem;">[ INVITE_CODE — SHARE & EARN +150 XP PER REFERRAL ]</div>
+                <div class="ref-code" onclick="copyRefLink()" title="Click to copy invite link">{{ referral_stats.referral_code }}</div>
+                <div class="ref-link">{{ request.host_url }}ref/{{ referral_stats.referral_code }}</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold);">{{ referral_stats.referred_count }}</div>
+                <div style="font-family:'Share Tech Mono',monospace;font-size:.55rem;color:var(--text-dim);">OPERATIVES_RECRUITED</div>
+                {% if referral_stats.xp_earned > 0 %}
+                <div style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--gold);margin-top:.2rem;">+{{ referral_stats.xp_earned }} XP earned</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% endif %}{# end is_new_user #}
+</main>
+
+<!-- ── Ticker ── -->
+<div class="data-ticker"><div class="ticker-inner">
+    <span class="ticker-item"><span>//</span> CORE_OS ONLINE</span>
+    <span class="ticker-item"><span>//</span> THREAT: {{ threat.label }}</span>
+    <span class="ticker-item"><span>//</span> XP: {{ total_xp }}</span>
+    <span class="ticker-item"><span>//</span> BALANCE: {{ balance }} CR</span>
+    <span class="ticker-item"><span>//</span> OVERDUE: {{ overdue_tasks }}</span>
+    <span class="ticker-item"><span>//</span> HABITS: {{ h_data.synced_today }}/{{ h_data.total }}</span>
+    <span class="ticker-item"><span>//</span> LVL {{ lvl }} // PROD: {{ prod.score }}/100</span>
+    {% if login_streak >= 2 %}<span class="ticker-item"><span>//</span> 🔥 STREAK: {{ login_streak }}d</span>{% endif %}
+    <span class="ticker-item"><span>//</span> CORE_OS ONLINE</span>
+    <span class="ticker-item"><span>//</span> THREAT: {{ threat.label }}</span>
+    <span class="ticker-item"><span>//</span> XP: {{ total_xp }}</span>
+    <span class="ticker-item"><span>//</span> BALANCE: {{ balance }} CR</span>
+    <span class="ticker-item"><span>//</span> OVERDUE: {{ overdue_tasks }}</span>
+    <span class="ticker-item"><span>//</span> HABITS: {{ h_data.synced_today }}/{{ h_data.total }}</span>
+    <span class="ticker-item"><span>//</span> LVL {{ lvl }} // PROD: {{ prod.score }}/100</span>
+</div></div>
+
+<script>
+// ── Utilities ──
+function toggleSidebar(){document.body.classList.toggle('sidebar-closed');localStorage.setItem('sidebarStatus',document.body.classList.contains('sidebar-closed')?'closed':'open');}
+function updateClock(){var el=document.getElementById('live-clock');if(el)el.textContent=new Date().toLocaleTimeString([],{hour12:false});setTimeout(updateClock,1000);}
+
+function animateNum(el,target,dur){
+    if(!el)return;
+    var s=performance.now();
+    (function step(now){
+        var p=Math.min((now-s)/dur,1),e=1-Math.pow(1-p,3);
+        el.textContent=Math.round(target*e).toLocaleString();
+        if(p<1)requestAnimationFrame(step);
+    })(s);
+}
+function animateRing(elId,pct,dur,color){
+    var c=document.getElementById(elId);
+    if(!c)return;
+    var circ=263.9,s=performance.now();
+    (function step(now){
+        var p=Math.min((now-s)/dur,1),e=1-Math.pow(1-p,3);
+        c.style.strokeDashoffset=circ-(circ*pct/100)*e;
+        if(p<1)requestAnimationFrame(step);
+    })(s);
+}
+function animateThreatBar(score,dur){
+    var bar=document.getElementById('threat-bar'),num=document.getElementById('threat-num');
+    if(!bar)return;
+    var s=performance.now();
+    (function step(now){
+        var p=Math.min((now-s)/dur,1),e=1-Math.pow(1-p,3);
+        bar.style.width=(score*e)+'%';
+        if(num)num.textContent=Math.round(score*e);
+        if(p<1)requestAnimationFrame(step);
+    })(s);
+}
+
+window.onload=function(){
+    updateClock();
+    if(localStorage.getItem('sidebarStatus')==='closed')document.body.classList.add('sidebar-closed');
+
+    setTimeout(function(){
+        animateNum(document.getElementById('cnt-xp'),    {{ total_xp }},      1400);
+        animateNum(document.getElementById('cnt-tasks'),  {{ completed_tasks }},1200);
+        animateNum(document.getElementById('cnt-streak'), {{ h_data.top_streak }},1200);
+        animateNum(document.getElementById('prod-num'),   {{ prod.score }},    1400);
+        animateRing('prod-ring', {{ prod.score }}, 1400);
+        animateThreatBar({{ threat.score }}, 1600);
+    },200);
+
+    // ── Charts ──
+    Chart.defaults.color='#64748b';
+    Chart.defaults.font.family="'Share Tech Mono',monospace";
+    Chart.defaults.font.size=10;
+
+    {% if h_data.total > 0 %}
+    new Chart(document.getElementById('habitChart'),{
+        type:'line',
+        data:{
+            labels:{{ h_data.weekly_labels|tojson }},
+            datasets:[{
+                label:'Syncs',
+                data:{{ h_data.weekly_syncs|tojson }},
+                borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.08)',
+                fill:true,tension:0.4,borderWidth:2.5,
+                pointBackgroundColor:'#818cf8',pointBorderColor:'transparent',
+                pointRadius:5,pointHoverRadius:9,
+            }]
+        },
+        options:{responsive:true,maintainAspectRatio:false,
+            plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+c.raw+' syncs';}}}},
+            scales:{
+                y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',stepSize:1},border:{display:false},min:0},
+                x:{grid:{display:false},ticks:{color:'#64748b'},border:{display:false}}
+            }
+        }
+    });
+    {% endif %}
+
+    {% if e_data.cat_labels %}
+    new Chart(document.getElementById('expenseChart'),{
+        type:'doughnut',
+        data:{
+            labels:{{ e_data.cat_labels|tojson }},
+            datasets:[{
+                data:{{ e_data.cat_values|tojson }},
+                backgroundColor:['#6366f1','#10b981','#f43f5e','#fbbf24','#22d3ee','#8b5cf6'],
+                borderWidth:0,hoverOffset:14,borderRadius:3,
+            }]
+        },
+        options:{responsive:true,maintainAspectRatio:false,
+            plugins:{
+                legend:{position:'bottom',labels:{color:'#64748b',padding:10,font:{size:9},boxWidth:8}},
+                tooltip:{callbacks:{label:function(c){return c.label+': '+c.raw.toLocaleString();}}}
+            },
+            cutout:'70%'
+        }
+    });
+    {% endif %}
+
+    // ── Feature engine ──
+    var owned=JSON.parse(localStorage.getItem('coreOsOwnedItems')||'[]');
+    if(owned.length){
+        function applyNeuralBooster(){var xp=document.querySelector('.xp-fill');if(!xp)return;xp.style.background='linear-gradient(90deg,#f43f5e,#f97316,#fbbf24,#10b981,#22d3ee,#6366f1)';xp.style.backgroundSize='200% 100%';xp.style.animation='nbRainbow 3s linear infinite';if(!document.getElementById('nb-style')){var s=document.createElement('style');s.id='nb-style';s.textContent='@keyframes nbRainbow{0%{background-position:0% 50%}100%{background-position:200% 50%}}';document.head.appendChild(s);}}
+        function applyFocusShield(){if(document.getElementById('focus-overlay'))return;var KEY='coreOsFocusEnd',end=parseInt(localStorage.getItem(KEY)||'0');if(Date.now()>end)return;var el=document.createElement('div');el.id='focus-overlay';el.style.cssText='position:fixed;bottom:24px;right:24px;background:rgba(8,14,28,0.97);border:1px solid #6366f1;border-radius:14px;padding:14px 20px;font-family:Share Tech Mono,monospace;font-size:0.68rem;color:#818cf8;z-index:9990;letter-spacing:1px;box-shadow:0 0 25px rgba(99,102,241,0.4);min-width:170px;cursor:pointer;';el.innerHTML='<div style="font-weight:700;margin-bottom:4px;">\uD83D\uDEE1\uFE0F FOCUS_SHIELD</div><div id="ftimer" style="color:#22d3ee;font-family:Rajdhani,sans-serif;font-size:1.3rem;font-weight:700;"></div><div style="font-size:0.5rem;color:#475569;margin-top:4px;">click to dismiss</div>';el.onclick=function(){localStorage.removeItem(KEY);el.remove();};document.body.appendChild(el);(function tick(){var rem=Math.max(0,parseInt(localStorage.getItem(KEY)||'0')-Date.now()),t=document.getElementById('ftimer');if(t)t.textContent=String(Math.floor(rem/3600000)).padStart(2,'0')+':'+String(Math.floor((rem%3600000)/60000)).padStart(2,'0')+':'+String(Math.floor((rem%60000)/1000)).padStart(2,'0');if(rem>0)setTimeout(tick,1000);else{if(el.parentNode)el.remove();localStorage.removeItem(KEY);}})();}
+        function applyStreakGuardian(){if(!document.getElementById('sg-corner')){var d=document.createElement('div');d.id='sg-corner';d.style.cssText='position:fixed;bottom:24px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#fbbf24;z-index:9990;letter-spacing:1px;';d.textContent='\u23F3 STREAK GUARD: ON';document.body.appendChild(d);}}
+        function applyMemoryCrystal(){if(document.getElementById('crystal-btn'))return;var btn=document.createElement('button');btn.id='crystal-btn';btn.textContent='\uD83D\uDCBE';btn.title='Memory Crystal';btn.style.cssText='position:fixed;bottom:24px;right:168px;width:46px;height:46px;background:linear-gradient(135deg,#6366f1,#22d3ee);border:none;border-radius:12px;font-size:1.2rem;cursor:pointer;z-index:9990;box-shadow:0 6px 20px rgba(99,102,241,0.4);transition:transform 0.2s;';btn.onmouseenter=function(){btn.style.transform='translateY(-3px)';};btn.onmouseleave=function(){btn.style.transform='';};btn.onclick=function(){fetch('/api/stats').then(function(r){return r.json();}).then(function(d){d._exported=new Date().toISOString();var blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='coreos_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);});};document.body.appendChild(btn);}
+        function applyDatabaseRelic(){if(document.getElementById('relic-btn'))return;var btn=document.createElement('button');btn.id='relic-btn';btn.textContent='\uD83D\uDCCA';btn.title='Database Relic';btn.style.cssText='position:fixed;bottom:24px;right:110px;width:46px;height:46px;background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.45);border-radius:12px;color:#fbbf24;font-size:1.2rem;cursor:pointer;z-index:9990;box-shadow:0 0 20px rgba(251,191,36,0.2);transition:box-shadow 0.2s;';btn.onmouseenter=function(){btn.style.boxShadow='0 0 30px rgba(251,191,36,0.5)';};btn.onmouseleave=function(){btn.style.boxShadow='0 0 20px rgba(251,191,36,0.2)';};btn.onclick=function(){var ex=document.getElementById('relic-panel');if(ex){ex.remove();return;}fetch('/api/stats').then(function(r){return r.json();}).then(function(d){var p=document.createElement('div');p.id='relic-panel';p.style.cssText='position:fixed;bottom:82px;right:24px;background:rgba(5,8,18,0.98);border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:20px 24px;font-family:Share Tech Mono,monospace;font-size:0.66rem;color:#64748b;z-index:9991;letter-spacing:1px;box-shadow:0 0 40px rgba(251,191,36,0.2);min-width:210px;';var tc=d.threat_score>=75?'#f43f5e':d.threat_score>=50?'#fbbf24':'#10b981';p.innerHTML='<div style="color:#fbbf24;font-weight:700;margin-bottom:14px;">\uD83D\uDCCA SYSTEM_LOGS</div><div style="display:flex;justify-content:space-between;margin:6px 0;">XP<span style="color:#818cf8">'+d.total_xp+'</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">LEVEL<span style="color:#22d3ee">'+d.lvl+'</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">BALANCE<span style="color:#fbbf24">'+d.balance+' CR</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">THREAT<span style="color:'+tc+'">'+d.threat_score+'/100</span></div><button onclick="this.parentElement.remove()" style="margin-top:12px;background:none;border:1px solid #1e293b;color:#475569;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.58rem;width:100%;">[ CLOSE ]</button>';document.body.appendChild(p);});};document.body.appendChild(btn);}
+        function applyXPOverdrive(){if(document.getElementById('overdrive-overlay'))return;var KEY='coreOsXPOverdriveEnd',end=parseInt(localStorage.getItem(KEY)||'0');if(Date.now()>end)return;var el=document.createElement('div');el.id='overdrive-overlay';el.style.cssText='position:fixed;bottom:24px;right:24px;background:rgba(8,14,28,0.97);border:1px solid #fbbf24;border-radius:14px;padding:14px 20px;font-family:Share Tech Mono,monospace;font-size:0.68rem;color:#fbbf24;z-index:9990;letter-spacing:1px;box-shadow:0 0 25px rgba(251,191,36,0.4);min-width:170px;cursor:pointer;';el.innerHTML='<div style="font-weight:700;margin-bottom:4px;">\u26A1 XP_OVERDRIVE</div><div id="otimer" style="color:#fcd34d;font-family:Rajdhani,sans-serif;font-size:1.3rem;font-weight:700;"></div><div style="font-size:0.5rem;color:#475569;margin-top:4px;">3x XP ACTIVE</div>';el.onclick=function(){el.remove();};document.body.appendChild(el);(function tick(){var rem=Math.max(0,parseInt(localStorage.getItem(KEY)||'0')-Date.now()),t=document.getElementById('otimer');if(t)t.textContent=String(Math.floor(rem/3600000)).padStart(2,'0')+':'+String(Math.floor((rem%3600000)/60000)).padStart(2,'0')+':'+String(Math.floor((rem%60000)/1000)).padStart(2,'0');if(rem>0)setTimeout(tick,1000);else{if(el.parentNode)el.remove();localStorage.removeItem(KEY);}})();}
+        function applyHabitForge(){if(!document.getElementById('hf-corner')){var d=document.createElement('div');d.id='hf-corner';d.style.cssText='position:fixed;bottom:64px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#fbbf24;z-index:9990;letter-spacing:1px;';d.textContent='\uD83D\uDD28 HABIT FORGE: +15 CR on 7+ streaks';document.body.appendChild(d);}}
+        function applyCreditInsurance(){if(!document.getElementById('ci-corner')){var d=document.createElement('div');d.id='ci-corner';d.style.cssText='position:fixed;bottom:104px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(16,185,129,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#10b981;z-index:9990;letter-spacing:1px;';d.textContent='\uD83D\uDD12 CREDIT INSURANCE: ACTIVE';document.body.appendChild(d);}}
+        owned.forEach(function(name){
+            if(name==='Neural Booster')   applyNeuralBooster();
+            if(name==='Focus Shield')     applyFocusShield();
+            if(name==='Streak Guardian')  applyStreakGuardian();
+            if(name==='Memory Crystal')   applyMemoryCrystal();
+            if(name==='Database Relic')   applyDatabaseRelic();
+            if(name==='XP Overdrive')     applyXPOverdrive();
+            if(name==='Habit Forge')      applyHabitForge();
+            if(name==='Credit Insurance') applyCreditInsurance();
+        });
+    }
+
+// Referral link copy
+function copyRefLink(){
+    var base = window.location.origin + '/ref/{{ referral_stats.referral_code if referral_stats else "" }}';
+    if(navigator.clipboard){ navigator.clipboard.writeText(base).then(function(){
+        var code = document.querySelector('.ref-code');
+        if(code){var orig=code.textContent;code.textContent='COPIED! ✓';setTimeout(function(){code.textContent=orig;},2000);}
+    }); }
+}
+// Feedback modal
+function showFeedback(){ var m=document.getElementById('feedback-modal'); m.style.display='flex'; m.style.alignItems='center'; m.style.justifyContent='center'; }
+function hideFeedback(){ document.getElementById('feedback-modal').style.display='none'; }
+function setFbType(type,btn){
+    document.getElementById('fb_type_input').value=type;
+    document.querySelectorAll('.fb-type-btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
+}
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') hideFeedback(); });
+
+};
+</script>
+
+<!-- Share button (floating) -->
+<button class="share-float" onclick="window.open('{{ url_for('share.share_card', username=current_user.username) }}','_blank')" title="Share Progress Card">📤</button>
+
+<!-- ── Feedback widget ── -->
+<div class="feedback-fab" onclick="showFeedback()">💬 FEEDBACK</div>
+
+<div class="feedback-modal" id="feedback-modal">
+    <div class="feedback-box">
+        <button onclick="hideFeedback()" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:1.1rem;">✕</button>
+        <div class="fb-title">Send Feedback</div>
+        <form method="POST" action="{{ url_for('growth.submit_feedback') }}" id="fb-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="page" value="{{ request.path }}">
+            <input type="hidden" name="fb_type" id="fb_type_input" value="general">
+            <div class="fb-types">
+                <button type="button" class="fb-type-btn active" onclick="setFbType('general',this)">General</button>
+                <button type="button" class="fb-type-btn"        onclick="setFbType('bug',this)">Bug Report</button>
+                <button type="button" class="fb-type-btn"        onclick="setFbType('feature',this)">Feature Request</button>
+            </div>
+            <textarea class="fb-textarea" name="message" placeholder="Tell us what you think, what's broken, or what you'd love to see..." required maxlength="2000"></textarea>
+            <button type="submit" class="fb-submit">SEND FEEDBACK →</button>
+        </form>
+    </div>
+</div>
+
+<!-- Flash toasts -->
+<div id="flash-data" style="display:none" data-messages="{{ get_flashed_messages(with_categories=true)|tojson|e }}"></div>
+<div id="toast-container" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:10px;align-items:center;pointer-events:none;"></div>
+<script>
+(function(){
+    var raw=document.getElementById('flash-data');if(!raw)return;
+    var msgs;try{msgs=JSON.parse(raw.dataset.messages||'[]');}catch(e){return;}
+    if(!msgs.length)return;
+    var COLORS={success:{border:'#10b981',text:'#6ee7b7',icon:'✓'},error:{border:'#f43f5e',text:'#fda4af',icon:'✕'},info:{border:'#6366f1',text:'#a5b4fc',icon:'ℹ'},warning:{border:'#fbbf24',text:'#fcd34d',icon:'⚠'}};
+    var container=document.getElementById('toast-container');
+    msgs.forEach(function(pair,idx){
+        var cat=pair[0]||'info',msg=pair[1]||'',c=COLORS[cat]||COLORS.info;
+        var div=document.createElement('div');
+        div.style.cssText='background:rgba(5,8,18,0.97);border:1px solid '+c.border+';border-radius:10px;padding:10px 18px;font-family:Share Tech Mono,monospace;font-size:0.72rem;color:'+c.text+';letter-spacing:0.5px;box-shadow:0 4px 24px rgba(0,0,0,0.5);display:flex;align-items:center;gap:10px;max-width:480px;pointer-events:auto;cursor:pointer;animation:toastSlide 0.3s ease;opacity:1;transition:opacity 0.4s ease;';
+        div.innerHTML='<span style="font-size:1rem">'+c.icon+'</span><span>'+msg+'</span>';
+        div.onclick=function(){div.style.opacity='0';setTimeout(function(){div.remove();},400);};
+        container.appendChild(div);
+        setTimeout(function(){div.style.opacity='0';setTimeout(function(){div.remove();},400);},4000+idx*300);
+    });
+    if(!document.getElementById('toast-anim-style')){var s=document.createElement('style');s.id='toast-anim-style';s.textContent='@keyframes toastSlide{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}';document.head.appendChild(s);}
+})();
+</script>
+</body>
+</html>

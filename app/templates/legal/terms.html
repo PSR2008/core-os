@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CORE OS — Terms of Use</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #050810; --bg2: #080d1a; --accent: #6366f1; --accent2: #22d3ee;
+      --text: #e2e8f0; --dim: #64748b; --border: rgba(99,102,241,0.15);
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Exo 2', sans-serif; font-size: 1rem; line-height: 1.8;
+      min-height: 100vh;
+    }
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.2rem 2rem; border-bottom: 1px solid var(--border);
+      background: rgba(5,8,16,0.95); position: sticky; top: 0; z-index: 100;
+    }
+    .logo { font-family: 'Rajdhani',sans-serif; font-size: 1.3rem; font-weight: 700;
+      color: var(--text); text-decoration: none; letter-spacing: 2px; }
+    .logo span { color: var(--accent2); }
+    .nav-links { display: flex; gap: 1.5rem; }
+    .nav-links a { color: var(--dim); text-decoration: none; font-size: .9rem;
+      transition: color .2s; }
+    .nav-links a:hover { color: var(--text); }
+    main { max-width: 780px; margin: 0 auto; padding: 4rem 2rem 6rem; }
+    .label { font-family: 'Share Tech Mono', monospace; font-size: .65rem;
+      color: var(--accent2); letter-spacing: 3px; margin-bottom: .75rem; }
+    h1 { font-family: 'Rajdhani', sans-serif; font-size: 2.4rem;
+      font-weight: 700; margin-bottom: .5rem; }
+    .date { font-family: 'Share Tech Mono', monospace; font-size: .75rem;
+      color: var(--dim); margin-bottom: 3rem; border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem; }
+    h2 { font-family: 'Share Tech Mono', monospace; font-size: 1rem;
+      color: var(--accent2); margin: 2.5rem 0 .75rem; letter-spacing: 1px; }
+    p { color: #94a3b8; margin-bottom: 1rem; }
+    ul { color: #94a3b8; margin: .5rem 0 1rem 1.5rem; }
+    ul li { margin-bottom: .4rem; }
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    footer { text-align: center; padding: 2rem; border-top: 1px solid var(--border);
+      font-family: 'Share Tech Mono', monospace; font-size: .65rem; color: var(--dim); }
+  </style>
+</head>
+<body>
+<nav>
+  <a class="logo" href="{{ url_for('entrance.entrance') }}">CORE <span>OS</span></a>
+  <div class="nav-links">
+    <a href="{{ url_for('entrance.entrance') }}">Home</a>
+    <a href="{{ url_for('legal.privacy') }}">Privacy</a>
+    <a href="{{ url_for('auth.login') }}">Sign In</a>
+  </div>
+</nav>
+
+<main>
+  <div class="label">// LEGAL_DOCS</div>
+  <h1>Terms of Use</h1>
+  <div class="date">Effective date: March 28, 2026 &nbsp;·&nbsp; CORE OS</div>
+
+  <p>These Terms of Use govern your access to and use of CORE OS. By creating an account or using the application, you agree to these terms. If you do not agree, do not use the service.</p>
+
+  <h2>// 1. ACCEPTABLE USE</h2>
+  <p>You may use CORE OS for personal productivity tracking and related lawful purposes. You agree not to:</p>
+  <ul>
+    <li>Use the service to store or transmit unlawful, harmful, or abusive content</li>
+    <li>Attempt to gain unauthorized access to any account, server, or database</li>
+    <li>Use automated scripts, bots, or scrapers against the service without permission</li>
+    <li>Impersonate another person or provide false account information</li>
+    <li>Circumvent any rate limits, authentication, or security controls</li>
+    <li>Interfere with the operation of the service or the experience of other users</li>
+  </ul>
+
+  <h2>// 2. YOUR ACCOUNT</h2>
+  <p>You are responsible for maintaining the security of your account credentials. Use a strong, unique password and do not share your login details. You are responsible for all activity that occurs under your account.</p>
+  <p>If you believe your account has been compromised, use the password reset feature immediately or contact support.</p>
+
+  <h2>// 3. YOUR DATA</h2>
+  <p>You own the data you enter into CORE OS — tasks, habits, expenses, wellness logs, and profile information. We do not claim ownership over your content. See our <a href="{{ url_for('legal.privacy') }}">Privacy Policy</a> for details on how data is stored and used.</p>
+
+  <h2>// 4. SERVICE AVAILABILITY</h2>
+  <p>CORE OS is provided as-is. We make reasonable efforts to maintain availability, but we do not guarantee uninterrupted access. The service may be updated, modified, or temporarily unavailable for maintenance without notice.</p>
+
+  <h2>// 5. LIMITATION OF LIABILITY</h2>
+  <p>To the extent permitted by applicable law, CORE OS and its operators are not liable for any indirect, incidental, or consequential damages arising from your use of the service, including loss of data. You use the service at your own risk.</p>
+
+  <h2>// 6. TERMINATION</h2>
+  <p>We reserve the right to suspend or terminate accounts that violate these terms. You may delete your account at any time by contacting support. Upon deletion, your data will be removed in accordance with our Privacy Policy.</p>
+
+  <h2>// 7. CHANGES TO THESE TERMS</h2>
+  <p>These terms may be updated from time to time. The effective date at the top of this page will reflect the most recent revision. Continued use of the service following an update constitutes acceptance of the revised terms.</p>
+
+  <h2>// 8. CONTACT</h2>
+  <p>Questions about these terms should be directed to the operator of the CORE OS instance you are using.</p>
+</main>
+
+<footer>© 2026 CORE OS &nbsp;·&nbsp; <a href="{{ url_for('legal.privacy') }}">Privacy Policy</a> &nbsp;·&nbsp; <a href="{{ url_for('legal.terms') }}">Terms</a></footer>
+</body>
+</html>

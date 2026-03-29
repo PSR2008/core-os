@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORE OS — 403 ACCESS DENIED</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@700&family=Exo+2:wght@400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root { --accent:#6366f1; --accent2:#22d3ee; --danger:#f43f5e; --text:#e2e8f0; --dim:#64748b; }
+        body { background:#050810; color:var(--text); font-family:'Exo 2',sans-serif; min-height:100vh; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+        body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(99,102,241,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.04) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; }
+        .wrap { text-align:center; padding:2rem; position:relative; z-index:10; }
+        .error-code { font-family:'Rajdhani',sans-serif; font-size:clamp(5rem,20vw,10rem); font-weight:700; color:var(--danger); line-height:1; text-shadow:0 0 60px rgba(244,63,94,0.4); letter-spacing:-4px; }
+        .error-label { font-family:'Share Tech Mono',monospace; font-size:0.7rem; color:var(--danger); letter-spacing:4px; margin:1rem 0 0.5rem; }
+        .error-msg { font-family:'Share Tech Mono',monospace; font-size:0.75rem; color:var(--dim); letter-spacing:1px; margin-bottom:2.5rem; line-height:1.8; }
+        .back-btn { display:inline-block; background:linear-gradient(135deg,var(--danger),#be123c); color:#fff; padding:0.8rem 2rem; border-radius:10px; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.95rem; letter-spacing:2px; text-decoration:none; transition:transform 0.2s,box-shadow 0.2s; }
+        .back-btn:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(244,63,94,0.4); }
+        .glow { position:fixed; border-radius:50%; filter:blur(100px); opacity:0.08; pointer-events:none; }
+        .glow.a { width:500px; height:500px; background:var(--danger); top:-150px; right:-150px; }
+        .glow.b { width:350px; height:350px; background:var(--accent); bottom:-100px; left:-100px; }
+    </style>
+</head>
+<body>
+    <div class="glow a"></div>
+    <div class="glow b"></div>
+    <div class="wrap">
+        <div class="error-code">403</div>
+        <div class="error-label">&#128274; ACCESS_DENIED</div>
+        <div class="error-msg">
+            Clearance level insufficient for this node.<br>
+            Your credentials do not match the required authorization profile.
+        </div>
+        <a href="{{ url_for('dashboard.index') }}" class="back-btn">RETURN TO DASHBOARD</a>
+    </div>
+</body>
+</html>

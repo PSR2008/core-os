@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Lab | CORE OS</title>
+        <script>
+    (function(){
+        var skinMap = {
+            'crimson': {{ 'true' if crimson_active else 'false' }},
+            'neon':    {{ 'true' if neon_active    else 'false' }},
+            'void':    {{ 'true' if void_active    else 'false' }},
+            'solar':   {{ 'true' if solar_active   else 'false' }},
+        };
+        try { localStorage.setItem('coreOsOwnedItems', JSON.stringify({{ owned_names|tojson }})); } catch(e){}
+        var active = localStorage.getItem('coreOsActiveSkin') || '';
+        // legacy fallback
+        if(!active){
+            if(localStorage.getItem('coreOsSkinEnabled')==='true') active='crimson';
+            else if(localStorage.getItem('coreOsNeonEnabled')==='true') active='neon';
+        }
+        if(active && skinMap[active]) document.documentElement.setAttribute('data-skin', active);
+    })();
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .metric-input-group{display:flex;flex-direction:column;gap:6px;}
+        .metric-label{font-family:'Share Tech Mono',monospace;font-size:0.65rem;letter-spacing:1.5px;font-weight:700;}
+        input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;width:100%;padding:0;margin:4px 0 0 0;border:none;box-shadow:none;}
+        input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:10px;background:rgba(255,255,255,0.06);}
+        input[type=range].energy::-webkit-slider-runnable-track{background:linear-gradient(90deg,var(--gold) var(--pct,50%),rgba(255,255,255,0.06) var(--pct,50%));}
+        input[type=range].clarity::-webkit-slider-runnable-track{background:linear-gradient(90deg,var(--success) var(--pct,50%),rgba(255,255,255,0.06) var(--pct,50%));}
+        input[type=range].mood::-webkit-slider-runnable-track{background:linear-gradient(90deg,var(--accent2) var(--pct,50%),rgba(255,255,255,0.06) var(--pct,50%));}
+        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:white;margin-top:-6px;cursor:pointer;box-shadow:0 0 10px rgba(99,102,241,0.5);transition:transform 0.2s;}
+        input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);}
+        input[type=range]:focus{border:none;box-shadow:none;background:transparent;}
+        .range-value{font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;min-width:30px;text-align:right;}
+        .range-row{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;}
+        .val-energy{color:var(--gold);font-weight:700;font-family:'Rajdhani',sans-serif;font-size:1.1rem;}
+        .val-clarity{color:var(--success);font-weight:700;font-family:'Rajdhani',sans-serif;font-size:1.1rem;}
+        .val-mood{color:var(--accent2);font-weight:700;font-family:'Rajdhani',sans-serif;font-size:1.1rem;}
+        .mini-bar{display:inline-flex;gap:2px;margin-left:6px;}
+        .mini-bar-segment{width:5px;height:12px;border-radius:2px;}
+        .metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-bottom:1.5rem;}
+        @media(max-width:700px){.metrics-grid{grid-template-columns:1fr;}}
+    </style>
+    <script src="{{ url_for('static', filename='motion.js') }}" defer></script>
+</head>
+<body id="body">
+<div class="scanline"></div>
+<nav class="sidebar">
+    <div class="sidebar-logo">CORE <span>OS</span></div>
+    <div class="hud-card">
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--gold);font-weight:700;margin-bottom:5px;font-family:'Share Tech Mono',monospace;">
+            <span>LVL {{ lvl }}</span><span>{{ balance }} CR</span>
+        </div>
+        <div class="xp-bar"><div class="xp-fill" style="width:{{ lvl_pc }}%"></div></div>
+    </div>
+    <div class="nav-links">
+        <a href="{{ url_for('dashboard.index') }}" class="nav-link">&#128202; Dashboard</a>
+        <a href="{{ url_for('tasks.tasks') }}" class="nav-link">&#128197; Task Matrix</a>
+        <a href="{{ url_for('habits.habits') }}" class="nav-link">&#9203; Habit Sync</a>
+        <a href="{{ url_for('wellness.wellness') }}" class="nav-link active">&#129504; Neural Lab</a>
+        <a href="{{ url_for('expenses.expenses') }}" class="nav-link">&#128184; Wallet</a>
+        <a href="{{ url_for('shop.shop') }}" class="nav-link">&#128722; Shop</a>
+        <a href="{{ url_for('profile.profile') }}" class="nav-link{% if request.path == '/profile' %} active{% endif %}">👤 Profile</a>
+    </div>
+    <form method="POST" action="{{ url_for('auth.logout') }}" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="disconnect-btn">⏻ DISCONNECT</button></form>
+</nav>
+<main class="main-content">
+    <button class="menu-toggle" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+    <div class="page-header">
+        <h1>Neural Lab</h1>
+        <p>[ BIOMETRIC_SCAN_ACTIVE // CALIBRATING_STATE ]</p>
+    </div>
+
+    <!-- Biometric Form -->
+    <div class="glass-card" style="margin-bottom:2rem;border-color:var(--border-bright);">
+        <h3>[ UPDATE_BIOMETRIC_PROFILE ]</h3>
+        <form action="{{ url_for('wellness.wellness') }}" method="POST" onsubmit="syncRangeValues()">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="metrics-grid">
+                <div>
+                    <div class="range-row">
+                        <div class="metric-label" style="color:var(--gold);flex:1;">&#9889; ENERGY</div>
+                        <span class="range-value" style="color:var(--gold);" id="energy-val">5</span>
+                    </div>
+                    <input type="range" class="energy" id="energy-range" min="1" max="10" value="5" oninput="updateRange('energy')">
+                    <input type="hidden" name="energy" id="energy-input" value="5">
+                </div>
+                <div>
+                    <div class="range-row">
+                        <div class="metric-label" style="color:var(--success);flex:1;">&#129504; CLARITY</div>
+                        <span class="range-value" style="color:var(--success);" id="clarity-val">5</span>
+                    </div>
+                    <input type="range" class="clarity" id="clarity-range" min="1" max="10" value="5" oninput="updateRange('clarity')">
+                    <input type="hidden" name="clarity" id="clarity-input" value="5">
+                </div>
+                <div>
+                    <div class="range-row">
+                        <div class="metric-label" style="color:var(--accent2);flex:1;">&#128156; MOOD</div>
+                        <span class="range-value" style="color:var(--accent2);" id="mood-val">5</span>
+                    </div>
+                    <input type="range" class="mood" id="mood-range" min="1" max="10" value="5" oninput="updateRange('mood')">
+                    <input type="hidden" name="mood" id="mood-input" value="5">
+                </div>
+            </div>
+            <textarea name="notes" placeholder="// Session notes, anomalies, observations..." style="height:90px;margin-bottom:1rem;"></textarea>
+            <button type="submit" class="btn-cyber" style="width:100%;">UPLOAD_BIOMETRICS</button>
+        </form>
+    </div>
+
+    <!-- ARIA AI Wellness Assistant -->
+    <!-- Log Table -->
+    <div class="glass-card">
+        <h3>[ HISTORICAL_NEURAL_LOGS ]</h3>
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--border);">
+                    <th style="text-align:left;padding:1rem;font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-dim);letter-spacing:1px;">TIMESTAMP</th>
+                    <th style="text-align:left;padding:1rem;font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-dim);letter-spacing:1px;">&#9889; ENERGY</th>
+                    <th style="text-align:left;padding:1rem;font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-dim);letter-spacing:1px;">&#129504; CLARITY</th>
+                    <th style="text-align:left;padding:1rem;font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-dim);letter-spacing:1px;">&#128156; MOOD</th>
+                    <th style="text-align:left;padding:1rem;font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-dim);letter-spacing:1px;">NOTES</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                    <td style="padding:1rem;font-family:'Share Tech Mono',monospace;color:var(--accent);font-size:0.8rem;">{{ log.date }}</td>
+                    <td style="padding:1rem;"><span class="val-energy">{{ log.energy }}</span><span style="color:var(--text-dim);font-size:0.7rem;">/10</span></td>
+                    <td style="padding:1rem;"><span class="val-clarity">{{ log.clarity }}</span><span style="color:var(--text-dim);font-size:0.7rem;">/10</span></td>
+                    <td style="padding:1rem;"><span class="val-mood">{{ log.mood }}</span><span style="color:var(--text-dim);font-size:0.7rem;">/10</span></td>
+                    <td style="padding:1rem;color:var(--text-dim);font-size:0.82rem;max-width:280px;">{{ log.notes or '&mdash;' }}</td>
+                    <td style="padding:1rem;"><form method="POST" action="{{ url_for('wellness.delete_wellness', id=log.id) }}" style="display:inline;" onsubmit="return confirm('Delete this entry?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" style="color:var(--danger,#f43f5e);font-family:'Share Tech Mono',monospace;font-size:0.65rem;text-decoration:none;border:1px solid rgba(244,63,94,0.3);padding:3px 8px;border-radius:5px;transition:0.2s;">✕ DEL</button></form></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:4rem;font-family:'Share Tech Mono',monospace;font-size:0.8rem;">NO_BIOMETRIC_DATA_DETECTED</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+    function updateRange(name){
+        var input=document.getElementById(name+'-range'), val=input.value;
+        document.getElementById(name+'-val').textContent=val;
+        input.style.setProperty('--pct',((val-1)/9*100).toFixed(1)+'%');
+    }
+    function syncRangeValues(){
+        document.getElementById('energy-input').value=document.getElementById('energy-range').value;
+        document.getElementById('clarity-input').value=document.getElementById('clarity-range').value;
+        document.getElementById('mood-input').value=document.getElementById('mood-range').value;
+    }
+    ['energy','clarity','mood'].forEach(function(n){ updateRange(n); });
+
+    function toggleSidebar(){
+        document.body.classList.toggle('sidebar-closed');
+        localStorage.setItem('sidebarStatus',document.body.classList.contains('sidebar-closed')?'closed':'open');
+    }
+    
+
+    /* ══ CORE OS FEATURE ENGINE ══ */
+    document.addEventListener('DOMContentLoaded', function(){
+        if(localStorage.getItem('sidebarStatus')==='closed') document.body.classList.add('sidebar-closed');
+        var owned = JSON.parse(localStorage.getItem('coreOsOwnedItems')||'[]');
+        if(!owned.length) return;
+        
+        function applyNeuralBooster(){var xp=document.querySelector('.xp-fill');if(!xp)return;xp.style.background='linear-gradient(90deg,#f43f5e,#f97316,#fbbf24,#10b981,#22d3ee,#6366f1)';xp.style.backgroundSize='200% 100%';xp.style.animation='nbRainbow 3s linear infinite';if(!document.getElementById('nb-style')){var s=document.createElement('style');s.id='nb-style';s.textContent='@keyframes nbRainbow{0%{background-position:0% 50%}100%{background-position:200% 50%}}';document.head.appendChild(s);}}
+        function applyFocusShield(){if(document.getElementById('focus-overlay'))return;var KEY='coreOsFocusEnd',end=parseInt(localStorage.getItem(KEY)||'0');if(Date.now()>end)return;var el=document.createElement('div');el.id='focus-overlay';el.style.cssText='position:fixed;bottom:24px;right:24px;background:rgba(8,14,28,0.97);border:1px solid #6366f1;border-radius:14px;padding:14px 20px;font-family:Share Tech Mono,monospace;font-size:0.68rem;color:#818cf8;z-index:9990;letter-spacing:1px;box-shadow:0 0 25px rgba(99,102,241,0.4);min-width:170px;cursor:pointer;';el.innerHTML='<div style="font-weight:700;margin-bottom:4px;">\uD83D\uDEE1\uFE0F FOCUS_SHIELD</div><div id="ftimer" style="color:#22d3ee;font-family:Rajdhani,sans-serif;font-size:1.3rem;font-weight:700;"></div><div style="font-size:0.5rem;color:#475569;margin-top:4px;">click to dismiss</div>';el.onclick=function(){localStorage.removeItem(KEY);el.remove();};document.body.appendChild(el);(function tick(){var rem=Math.max(0,parseInt(localStorage.getItem(KEY)||'0')-Date.now()),t=document.getElementById('ftimer');if(t)t.textContent=String(Math.floor(rem/3600000)).padStart(2,'0')+':'+String(Math.floor((rem%3600000)/60000)).padStart(2,'0')+':'+String(Math.floor((rem%60000)/1000)).padStart(2,'0');if(rem>0)setTimeout(tick,1000);else{if(el.parentNode)el.remove();localStorage.removeItem(KEY);}})();}
+        function applyStreakGuardian(){document.querySelectorAll('.habit-card').forEach(function(card){if(card.querySelector('.sg-badge'))return;var nm=card.querySelector('.habit-name');if(!nm)return;var b=document.createElement('span');b.className='sg-badge';b.style.cssText='font-size:0.55rem;background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);border-radius:20px;padding:2px 8px;margin-left:8px;font-family:Share Tech Mono,monospace;vertical-align:middle;';b.textContent='\u23F3 PROTECTED';nm.appendChild(b);});if(!document.getElementById('sg-corner')){var d=document.createElement('div');d.id='sg-corner';d.style.cssText='position:fixed;bottom:24px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#fbbf24;z-index:9990;letter-spacing:1px;';d.textContent='\u23F3 STREAK GUARD: ON';document.body.appendChild(d);}}
+        function applyMemoryCrystal(){if(document.getElementById('crystal-btn'))return;var btn=document.createElement('button');btn.id='crystal-btn';btn.textContent='\uD83D\uDCBE';btn.title='Memory Crystal';btn.style.cssText='position:fixed;bottom:24px;right:168px;width:46px;height:46px;background:linear-gradient(135deg,#6366f1,#22d3ee);border:none;border-radius:12px;font-size:1.2rem;cursor:pointer;z-index:9990;box-shadow:0 6px 20px rgba(99,102,241,0.4);transition:transform 0.2s;';btn.onmouseenter=function(){btn.style.transform='translateY(-3px)';};btn.onmouseleave=function(){btn.style.transform='';};btn.onclick=function(){fetch('/api/stats').then(function(r){return r.json();}).then(function(d){d._exported=new Date().toISOString();var blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='coreos_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);});};document.body.appendChild(btn);}
+        function applyDatabaseRelic(){if(document.getElementById('relic-btn'))return;var btn=document.createElement('button');btn.id='relic-btn';btn.textContent='\uD83D\uDCCA';btn.title='Database Relic';btn.style.cssText='position:fixed;bottom:24px;right:110px;width:46px;height:46px;background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.45);border-radius:12px;color:#fbbf24;font-size:1.2rem;cursor:pointer;z-index:9990;box-shadow:0 0 20px rgba(251,191,36,0.2);transition:box-shadow 0.2s;';btn.onmouseenter=function(){btn.style.boxShadow='0 0 30px rgba(251,191,36,0.5)';};btn.onmouseleave=function(){btn.style.boxShadow='0 0 20px rgba(251,191,36,0.2)';};btn.onclick=function(){var ex=document.getElementById('relic-panel');if(ex){ex.remove();return;}fetch('/api/stats').then(function(r){return r.json();}).then(function(d){var p=document.createElement('div');p.id='relic-panel';p.style.cssText='position:fixed;bottom:82px;right:24px;background:rgba(5,8,18,0.98);border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:20px 24px;font-family:Share Tech Mono,monospace;font-size:0.66rem;color:#64748b;z-index:9991;letter-spacing:1px;box-shadow:0 0 40px rgba(251,191,36,0.2);min-width:210px;';var tc=d.threat_score>=75?'#f43f5e':d.threat_score>=50?'#fbbf24':'#10b981';p.innerHTML='<div style="color:#fbbf24;font-weight:700;margin-bottom:14px;">\uD83D\uDCCA SYSTEM_LOGS</div><div style="display:flex;justify-content:space-between;margin:6px 0;">XP<span style="color:#818cf8">'+d.total_xp+'</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">LEVEL<span style="color:#22d3ee">'+d.lvl+'</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">BALANCE<span style="color:#fbbf24">'+d.balance+' CR</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">THREAT<span style="color:'+tc+'">'+d.threat_score+'/100</span></div><button onclick="this.parentElement.remove()" style="margin-top:12px;background:none;border:1px solid #1e293b;color:#475569;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.58rem;width:100%;">[ CLOSE ]</button>';document.body.appendChild(p);});};document.body.appendChild(btn);}
+        function applyXPOverdrive(){if(document.getElementById('overdrive-overlay'))return;var KEY='coreOsXPOverdriveEnd',end=parseInt(localStorage.getItem(KEY)||'0');if(Date.now()>end)return;var el=document.createElement('div');el.id='overdrive-overlay';el.style.cssText='position:fixed;bottom:24px;right:24px;background:rgba(8,14,28,0.97);border:1px solid #fbbf24;border-radius:14px;padding:14px 20px;font-family:Share Tech Mono,monospace;font-size:0.68rem;color:#fbbf24;z-index:9990;letter-spacing:1px;box-shadow:0 0 25px rgba(251,191,36,0.4);min-width:170px;cursor:pointer;';el.innerHTML='<div style="font-weight:700;margin-bottom:4px;">\u26A1 XP_OVERDRIVE</div><div id="otimer" style="color:#fcd34d;font-family:Rajdhani,sans-serif;font-size:1.3rem;font-weight:700;"></div><div style="font-size:0.5rem;color:#475569;margin-top:4px;">3x XP ACTIVE</div>';el.onclick=function(){el.remove();};document.body.appendChild(el);(function tick(){var rem=Math.max(0,parseInt(localStorage.getItem(KEY)||'0')-Date.now()),t=document.getElementById('otimer');if(t)t.textContent=String(Math.floor(rem/3600000)).padStart(2,'0')+':'+String(Math.floor((rem%3600000)/60000)).padStart(2,'0')+':'+String(Math.floor((rem%60000)/1000)).padStart(2,'0');if(rem>0)setTimeout(tick,1000);else{if(el.parentNode)el.remove();localStorage.removeItem(KEY);}})();}
+        function applyHabitForge(){document.querySelectorAll('.habit-card').forEach(function(card){if(card.querySelector('.hf-badge'))return;var sn=card.querySelector('.streak-num');var streak=sn?parseInt(sn.textContent||'0'):0;if(streak<7)return;var nm=card.querySelector('.habit-name');if(!nm)return;var b=document.createElement('span');b.className='hf-badge';b.style.cssText='font-size:0.55rem;background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);border-radius:20px;padding:2px 8px;margin-left:8px;font-family:Share Tech Mono,monospace;vertical-align:middle;';b.textContent='\uD83D\uDD28 +15 CR';nm.appendChild(b);});if(!document.getElementById('hf-corner')){var d=document.createElement('div');d.id='hf-corner';d.style.cssText='position:fixed;bottom:64px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#fbbf24;z-index:9990;letter-spacing:1px;';d.textContent='\uD83D\uDD28 HABIT FORGE: +15 CR on 7+ streaks';document.body.appendChild(d);}}
+        function applyCreditInsurance(){if(document.getElementById('ci-corner'))return;var d=document.createElement('div');d.id='ci-corner';d.style.cssText='position:fixed;bottom:104px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(16,185,129,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#10b981;z-index:9990;letter-spacing:1px;';d.textContent='\uD83D\uDD12 CREDIT INSURANCE: ACTIVE';document.body.appendChild(d);}
+        function runFeatureEngine(){
+            var owned=JSON.parse(localStorage.getItem('coreOsOwnedItems')||'[]');
+            owned.forEach(function(name){
+                if(name==='Neural Booster')   applyNeuralBooster();
+                if(name==='Focus Shield')     applyFocusShield();
+                if(name==='Streak Guardian')  applyStreakGuardian();
+                if(name==='Memory Crystal')   applyMemoryCrystal();
+                if(name==='Database Relic')   applyDatabaseRelic();
+                if(name==='XP Overdrive')     applyXPOverdrive();
+                if(name==='Habit Forge')      applyHabitForge();
+                if(name==='Credit Insurance') applyCreditInsurance();
+            });
+        }
+        runFeatureEngine();
+    });
+
+</script>
+
+    <!-- ── CORE OS Flash Toasts ─────────────────────────────────────────── -->
+    <div id="flash-data" style="display:none"
+         data-messages="{{ get_flashed_messages(with_categories=true) | tojson | e }}">
+    </div>
+    <div id="toast-container" style="
+        position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+        z-index:99999; display:flex; flex-direction:column; gap:10px;
+        align-items:center; pointer-events:none;
+    "></div>
+    <script>
+    (function(){
+        var raw = document.getElementById('flash-data');
+        if(!raw) return;
+        var msgs;
+        try { msgs = JSON.parse(raw.dataset.messages || '[]'); } catch(e){ return; }
+        if(!msgs.length) return;
+        var COLORS = {
+            success: { border:'#10b981', text:'#6ee7b7', icon:'✓' },
+            error:   { border:'#f43f5e', text:'#fda4af', icon:'✕' },
+            info:    { border:'#6366f1', text:'#a5b4fc', icon:'ℹ' },
+            warning: { border:'#fbbf24', text:'#fcd34d', icon:'⚠' },
+        };
+        var container = document.getElementById('toast-container');
+        msgs.forEach(function(pair, idx){
+            var cat = pair[0] || 'info';
+            var msg = pair[1] || '';
+            var c   = COLORS[cat] || COLORS.info;
+            var div = document.createElement('div');
+            div.style.cssText = [
+                'background:rgba(5,8,18,0.97)',
+                'border:1px solid ' + c.border,
+                'border-radius:10px',
+                'padding:10px 18px',
+                'font-family:Share Tech Mono,monospace',
+                'font-size:0.72rem',
+                'color:' + c.text,
+                'letter-spacing:0.5px',
+                'box-shadow:0 4px 24px rgba(0,0,0,0.5)',
+                'display:flex',
+                'align-items:center',
+                'gap:10px',
+                'max-width:480px',
+                'pointer-events:auto',
+                'cursor:pointer',
+                'animation:toastSlide 0.3s ease',
+                'opacity:1',
+                'transition:opacity 0.4s ease',
+            ].join(';');
+            div.innerHTML = '<span style="font-size:1rem">' + c.icon + '</span><span>' + msg + '</span>';
+            div.onclick = function(){ div.style.opacity='0'; setTimeout(function(){ div.remove(); }, 400); };
+            container.appendChild(div);
+            var delay = 4000 + idx * 300;
+            setTimeout(function(){ div.style.opacity='0'; setTimeout(function(){ div.remove(); }, 400); }, delay);
+        });
+        if(!document.getElementById('toast-anim-style')){
+            var s = document.createElement('style');
+            s.id = 'toast-anim-style';
+            s.textContent = '@keyframes toastSlide{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}';
+            document.head.appendChild(s);
+        }
+    })();
+    </script>
+
+</body>
+</html>

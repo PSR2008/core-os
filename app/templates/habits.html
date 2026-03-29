@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habit Sync | CORE OS</title>
+            <script>
+    (function(){
+        var skinMap = {
+            'crimson': {{ 'true' if crimson_active else 'false' }},
+            'neon':    {{ 'true' if neon_active    else 'false' }},
+            'void':    {{ 'true' if void_active    else 'false' }},
+            'solar':   {{ 'true' if solar_active   else 'false' }},
+        };
+        try { localStorage.setItem('coreOsOwnedItems', JSON.stringify({{ owned_names|tojson }})); } catch(e){}
+        var active = localStorage.getItem('coreOsActiveSkin') || '';
+        // legacy fallback
+        if(!active){
+            if(localStorage.getItem('coreOsSkinEnabled')==='true') active='crimson';
+            else if(localStorage.getItem('coreOsNeonEnabled')==='true') active='neon';
+        }
+        if(active && skinMap[active]) document.documentElement.setAttribute('data-skin', active);
+    })();
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .habit-card { position:relative; overflow:hidden; transition:0.3s; }
+        .habit-card .accent-bar { position:absolute; top:0; left:0; width:4px; height:100%; border-radius:3px 0 0 3px; }
+        .habit-card.synced .accent-bar { background:linear-gradient(180deg,var(--accent),var(--accent2)); box-shadow:0 0 18px var(--accent); }
+        .habit-card:not(.synced) .accent-bar { background:linear-gradient(180deg,var(--success),var(--cyan)); box-shadow:0 0 18px var(--success); }
+        .habit-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.2rem; padding-left:8px; }
+        .habit-name { font-family:'Rajdhani',sans-serif; font-size:1.35rem; font-weight:600; letter-spacing:0.3px; }
+        .habit-id   { font-family:'Share Tech Mono',monospace; font-size:0.58rem; color:var(--text-dim); margin-top:3px; }
+        .streak-num { font-family:'Rajdhani',sans-serif; font-size:2.5rem; font-weight:700; color:var(--success); line-height:1; display:block; text-align:right; }
+        .streak-lbl { font-family:'Share Tech Mono',monospace; font-size:0.52rem; color:var(--text-dim); letter-spacing:1px; text-align:right; }
+        .fire-anim  { display:inline-block; animation:fireWobble 0.6s ease-in-out infinite alternate; }
+        @keyframes fireWobble { from{transform:rotate(-6deg) scale(1)} to{transform:rotate(6deg) scale(1.1)} }
+        .milestone { display:inline-flex; align-items:center; gap:5px; font-family:'Share Tech Mono',monospace; font-size:0.6rem; padding:3px 10px; border-radius:20px; font-weight:700; letter-spacing:1px; margin-bottom:0.8rem; margin-left:8px; }
+        .ms-bronze { background:rgba(180,100,30,0.15); color:#cd7f32; border:1px solid rgba(180,100,30,0.3); }
+        .ms-silver { background:rgba(150,160,170,0.15); color:#c0c0c0; border:1px solid rgba(150,160,170,0.3); }
+        .ms-gold   { background:rgba(251,191,36,0.15); color:var(--gold); border:1px solid rgba(251,191,36,0.3); animation:glow-ms 2s ease-in-out infinite; }
+        .ms-cyber  { background:rgba(99,102,241,0.15); color:var(--accent2); border:1px solid var(--accent); animation:glow-ms 2s ease-in-out infinite; }
+        @keyframes glow-ms { 0%,100%{box-shadow:none} 50%{box-shadow:0 0 12px rgba(251,191,36,0.4)} }
+        .sync-btn { display:block; width:100%; text-align:center; padding:11px; border-radius:10px; font-family:'Rajdhani',sans-serif; font-size:0.85rem; font-weight:700; letter-spacing:1.5px; transition:0.3s; margin-bottom:0.8rem; text-decoration:none; border:none; cursor:pointer; }
+        .sync-active { background:linear-gradient(135deg,var(--accent),#4338ca); color:white; box-shadow:0 4px 14px rgba(99,102,241,0.3); }
+        .sync-active:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(99,102,241,0.5); }
+        .sync-done   { background:rgba(16,185,129,0.1); color:var(--success); border:1px solid rgba(16,185,129,0.4); cursor:default; }
+        .terminate-btn { display:block; text-align:right; color:var(--danger); text-decoration:none; font-family:'Share Tech Mono',monospace; font-size:0.6rem; font-weight:800; letter-spacing:1px; opacity:0.45; transition:0.2s; padding-left:8px; }
+        .terminate-btn:hover { opacity:1; }
+        .heatmap-wrap { padding-left:8px; margin-top:0.8rem; }
+        .heatmap-title { font-family:'Share Tech Mono',monospace; font-size:0.58rem; color:var(--text-dim); letter-spacing:1.5px; margin-bottom:6px; }
+        .heatmap-grid { display:grid; grid-template-columns:repeat(10,1fr); gap:4px; }
+        .hm-cell { aspect-ratio:1; border-radius:3px; border:1px solid rgba(255,255,255,0.06); cursor:default; transition:transform 0.15s, box-shadow 0.15s; position:relative; }
+        .hm-cell:hover { transform:scale(1.4); z-index:10; }
+        .hm-cell.done { background:var(--success); border-color:var(--success); box-shadow:0 0 6px rgba(16,185,129,0.5); }
+        .hm-cell.miss { background:rgba(255,255,255,0.04); }
+        .hm-cell:hover::after { content:attr(data-date); position:absolute; bottom:calc(100% + 5px); left:50%; transform:translateX(-50%); background:rgba(5,8,18,0.95); border:1px solid var(--border); border-radius:5px; font-family:'Share Tech Mono',monospace; font-size:0.55rem; color:var(--text); padding:3px 7px; white-space:nowrap; z-index:100; pointer-events:none; }
+        .habit-stats-bar { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:2rem; }
+        .hsb-card { background:rgba(255,255,255,0.025); border:1px solid var(--border); border-radius:12px; padding:1rem 1.2rem; text-align:center; }
+        .hsb-val  { font-family:'Rajdhani',sans-serif; font-size:1.8rem; font-weight:700; line-height:1; }
+        .hsb-lbl  { font-family:'Share Tech Mono',monospace; font-size:0.55rem; color:var(--text-dim); letter-spacing:1px; margin-top:4px; }
+        .add-form { display:flex; gap:12px; }
+        .add-form input { margin-bottom:0; }
+        .sec-head { font-family:'Share Tech Mono',monospace; font-size:0.68rem; color:var(--accent2); letter-spacing:2px; margin-bottom:1.2rem; display:flex; align-items:center; gap:10px; }
+        .sec-head::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--border),transparent); }
+    </style>
+    <script src="{{ url_for('static', filename='motion.js') }}" defer></script>
+</head>
+<body id="body">
+<div class="scanline"></div>
+<nav class="sidebar">
+    <div class="sidebar-logo">CORE <span>OS</span></div>
+    <div class="hud-card">
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--gold);font-weight:700;margin-bottom:5px;font-family:'Share Tech Mono',monospace;">
+            <span>LVL {{ lvl }}</span><span>{{ balance }} CR</span>
+        </div>
+        <div class="xp-bar"><div class="xp-fill" style="width:{{ lvl_pc }}%"></div></div>
+    </div>
+    <div class="nav-links">
+        <a href="{{ url_for('dashboard.index') }}" class="nav-link">📊 Dashboard</a>
+        <a href="{{ url_for('tasks.tasks') }}"     class="nav-link">📅 Task Matrix</a>
+        <a href="{{ url_for('habits.habits') }}"    class="nav-link active">⏳ Habit Sync</a>
+        <a href="{{ url_for('wellness.wellness') }}"  class="nav-link">🧠 Neural Lab</a>
+        <a href="{{ url_for('expenses.expenses') }}"  class="nav-link">💸 Wallet</a>
+        <a href="{{ url_for('shop.shop') }}"      class="nav-link">🛒 Shop</a>
+        <a href="{{ url_for('profile.profile') }}" class="nav-link{% if request.path == '/profile' %} active{% endif %}">👤 Profile</a>
+    </div>
+    <form method="POST" action="{{ url_for('auth.logout') }}" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="disconnect-btn">⏻ DISCONNECT</button></form>
+</nav>
+<main class="main-content">
+    <button class="menu-toggle" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+    <div class="page-header">
+        <h1>Habit Sync</h1>
+        <p>[ REWIRING_NEURAL_PATHWAYS // {{ habits|length }} SEQUENCES_ACTIVE ]</p>
+    </div>
+    {% set total_streaks = habits | sum(attribute='streak') %}
+    {% set ns = namespace(synced_count=0) %}
+    {% for h in habits %}{% if h.is_synced_today() %}{% set ns.synced_count = ns.synced_count + 1 %}{% endif %}{% endfor %}
+    {% set synced_count = ns.synced_count %}
+    <div class="habit-stats-bar">
+        <div class="hsb-card">
+            <div class="hsb-val" style="color:var(--accent2);">{{ habits|length }}</div>
+            <div class="hsb-lbl">TOTAL_SEQUENCES</div>
+        </div>
+        <div class="hsb-card" style="border-color:rgba(16,185,129,0.3);">
+            <div class="hsb-val" style="color:var(--success);">{{ synced_count }}/{{ habits|length }}</div>
+            <div class="hsb-lbl">SYNCED_TODAY</div>
+        </div>
+        <div class="hsb-card" style="border-color:rgba(251,191,36,0.3);">
+            <div class="hsb-val" style="color:var(--gold);">{{ total_streaks }}</div>
+            <div class="hsb-lbl">TOTAL_STREAK_DAYS</div>
+        </div>
+    </div>
+    <div class="glass-card" style="margin-bottom:2rem;border-color:var(--border-bright);">
+        <h3>[ INITIATE_NEW_SEQUENCE ]</h3>
+        <form action="{{ url_for('habits.habits') }}" method="POST" class="add-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="habit" placeholder="Enter habit (e.g. 5am Wakeup, Meditation, Cold Shower)" required>
+            <button type="submit" class="btn-cyber" style="white-space:nowrap;">INJECT</button>
+        </form>
+    </div>
+    {% if habits %}
+    <div class="sec-head">[ ACTIVE_SEQUENCES ]</div>
+    <div class="dashboard-grid">
+        {% for h in habits %}
+        {% set is_synced = h.is_synced_today() %}
+        {% set streak = h.streak %}
+        <div class="glass-card habit-card {% if is_synced %}synced{% endif %}">
+            <div class="accent-bar"></div>
+            <div class="habit-top">
+                <div>
+                    <div class="habit-name">
+                        {% if streak >= 30 %}🏆{% elif streak >= 14 %}💫{% elif streak >= 7 %}<span class="fire-anim">🔥</span>{% elif streak >= 3 %}⚡{% endif %}
+                        {{ h.name }}
+                    </div>
+                    <div class="habit-id">ID: HB_{{ h.id }}</div>
+                </div>
+                <div>
+                    <span class="streak-num">{{ streak }}</span>
+                    <span class="streak-lbl">DAY_STREAK</span>
+                </div>
+            </div>
+            {% if streak >= 30 %}<div><span class="milestone ms-cyber">🏆 LEGENDARY_30</span></div>
+            {% elif streak >= 14 %}<div><span class="milestone ms-gold">💫 ELITE_14</span></div>
+            {% elif streak >= 7 %}<div><span class="milestone ms-silver">🔥 STREAK_7</span></div>
+            {% elif streak >= 3 %}<div><span class="milestone ms-bronze">⚡ STREAK_3</span></div>
+            {% endif %}
+            {% if is_synced %}
+            <div class="sync-btn sync-done">✓ SYNCED_TODAY</div>
+            {% else %}
+            <form method="POST" action="{{ url_for('habits.sync_habit', id=h.id) }}" style="display:block"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="sync-btn sync-active">⚡ SYNC_NEURAL_LINK</button></form>
+            {% endif %}
+            <div class="heatmap-wrap">
+                <div class="heatmap-title">// 30_DAY_ACTIVITY_MAP</div>
+                <div class="heatmap-grid">
+                    {% for day in heatmap_data[h.id] %}
+                    <div class="hm-cell {% if day.done %}done{% else %}miss{% endif %}" data-date="{{ day.date }}" title="{{ day.date }}"></div>
+                    {% endfor %}
+                </div>
+            </div>
+            <form method="POST" action="{{ url_for('habits.delete_habit', id=h.id) }}" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" style="margin-top:0.8rem;">[ TERMINATE_SEQUENCE ]</button></form>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:5rem 2rem;border:2px dashed rgba(99,102,241,0.15);border-radius:20px;">
+        <div style="font-size:3.5rem;margin-bottom:1rem;opacity:0.3;">🧠</div>
+        <div style="color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:0.85rem;">NO_SEQUENCES_INITIALIZED // INJECT_FIRST_HABIT_ABOVE</div>
+    </div>
+    {% endif %}
+</main>
+<script>
+    function toggleSidebar() {
+        document.body.classList.toggle('sidebar-closed');
+        localStorage.setItem('sidebarStatus', document.body.classList.contains('sidebar-closed') ? 'closed' : 'open');
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        if (localStorage.getItem('sidebarStatus') === 'closed') document.body.classList.add('sidebar-closed');
+    /* ─── FEATURE ENGINE — functions defined first, called last ─── */
+    
+        function applyNeuralBooster(){var xp=document.querySelector('.xp-fill');if(!xp)return;xp.style.background='linear-gradient(90deg,#f43f5e,#f97316,#fbbf24,#10b981,#22d3ee,#6366f1)';xp.style.backgroundSize='200% 100%';xp.style.animation='nbRainbow 3s linear infinite';if(!document.getElementById('nb-style')){var s=document.createElement('style');s.id='nb-style';s.textContent='@keyframes nbRainbow{0%{background-position:0% 50%}100%{background-position:200% 50%}}';document.head.appendChild(s);}}
+        function applyFocusShield(){if(document.getElementById('focus-overlay'))return;var KEY='coreOsFocusEnd',end=parseInt(localStorage.getItem(KEY)||'0');if(Date.now()>end)return;var el=document.createElement('div');el.id='focus-overlay';el.style.cssText='position:fixed;bottom:24px;right:24px;background:rgba(8,14,28,0.97);border:1px solid #6366f1;border-radius:14px;padding:14px 20px;font-family:Share Tech Mono,monospace;font-size:0.68rem;color:#818cf8;z-index:9990;letter-spacing:1px;box-shadow:0 0 25px rgba(99,102,241,0.4);min-width:170px;cursor:pointer;';el.innerHTML='<div style="font-weight:700;margin-bottom:4px;">\uD83D\uDEE1\uFE0F FOCUS_SHIELD</div><div id="ftimer" style="color:#22d3ee;font-family:Rajdhani,sans-serif;font-size:1.3rem;font-weight:700;"></div><div style="font-size:0.5rem;color:#475569;margin-top:4px;">click to dismiss</div>';el.onclick=function(){localStorage.removeItem(KEY);el.remove();};document.body.appendChild(el);(function tick(){var rem=Math.max(0,parseInt(localStorage.getItem(KEY)||'0')-Date.now()),t=document.getElementById('ftimer');if(t)t.textContent=String(Math.floor(rem/3600000)).padStart(2,'0')+':'+String(Math.floor((rem%3600000)/60000)).padStart(2,'0')+':'+String(Math.floor((rem%60000)/1000)).padStart(2,'0');if(rem>0)setTimeout(tick,1000);else{if(el.parentNode)el.remove();localStorage.removeItem(KEY);}})();}
+        function applyStreakGuardian(){document.querySelectorAll('.habit-card').forEach(function(card){if(card.querySelector('.sg-badge'))return;var nm=card.querySelector('.habit-name');if(!nm)return;var b=document.createElement('span');b.className='sg-badge';b.style.cssText='font-size:0.55rem;background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);border-radius:20px;padding:2px 8px;margin-left:8px;font-family:Share Tech Mono,monospace;vertical-align:middle;';b.textContent='\u23F3 PROTECTED';nm.appendChild(b);});if(!document.getElementById('sg-corner')){var d=document.createElement('div');d.id='sg-corner';d.style.cssText='position:fixed;bottom:24px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#fbbf24;z-index:9990;letter-spacing:1px;';d.textContent='\u23F3 STREAK GUARD: ON';document.body.appendChild(d);}}
+        function applyMemoryCrystal(){if(document.getElementById('crystal-btn'))return;var btn=document.createElement('button');btn.id='crystal-btn';btn.textContent='\uD83D\uDCBE';btn.title='Memory Crystal';btn.style.cssText='position:fixed;bottom:24px;right:168px;width:46px;height:46px;background:linear-gradient(135deg,#6366f1,#22d3ee);border:none;border-radius:12px;font-size:1.2rem;cursor:pointer;z-index:9990;box-shadow:0 6px 20px rgba(99,102,241,0.4);transition:transform 0.2s;';btn.onmouseenter=function(){btn.style.transform='translateY(-3px)';};btn.onmouseleave=function(){btn.style.transform='';};btn.onclick=function(){fetch('/api/stats').then(function(r){return r.json();}).then(function(d){d._exported=new Date().toISOString();var blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='coreos_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);});};document.body.appendChild(btn);}
+        function applyDatabaseRelic(){if(document.getElementById('relic-btn'))return;var btn=document.createElement('button');btn.id='relic-btn';btn.textContent='\uD83D\uDCCA';btn.title='Database Relic';btn.style.cssText='position:fixed;bottom:24px;right:110px;width:46px;height:46px;background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.45);border-radius:12px;color:#fbbf24;font-size:1.2rem;cursor:pointer;z-index:9990;box-shadow:0 0 20px rgba(251,191,36,0.2);transition:box-shadow 0.2s;';btn.onmouseenter=function(){btn.style.boxShadow='0 0 30px rgba(251,191,36,0.5)';};btn.onmouseleave=function(){btn.style.boxShadow='0 0 20px rgba(251,191,36,0.2)';};btn.onclick=function(){var ex=document.getElementById('relic-panel');if(ex){ex.remove();return;}fetch('/api/stats').then(function(r){return r.json();}).then(function(d){var p=document.createElement('div');p.id='relic-panel';p.style.cssText='position:fixed;bottom:82px;right:24px;background:rgba(5,8,18,0.98);border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:20px 24px;font-family:Share Tech Mono,monospace;font-size:0.66rem;color:#64748b;z-index:9991;letter-spacing:1px;box-shadow:0 0 40px rgba(251,191,36,0.2);min-width:210px;';var tc=d.threat_score>=75?'#f43f5e':d.threat_score>=50?'#fbbf24':'#10b981';p.innerHTML='<div style="color:#fbbf24;font-weight:700;margin-bottom:14px;">\uD83D\uDCCA SYSTEM_LOGS</div><div style="display:flex;justify-content:space-between;margin:6px 0;">XP<span style="color:#818cf8">'+d.total_xp+'</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">LEVEL<span style="color:#22d3ee">'+d.lvl+'</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">BALANCE<span style="color:#fbbf24">'+d.balance+' CR</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">THREAT<span style="color:'+tc+'">'+d.threat_score+'/100</span></div><button onclick="this.parentElement.remove()" style="margin-top:12px;background:none;border:1px solid #1e293b;color:#475569;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.58rem;width:100%;">[ CLOSE ]</button>';document.body.appendChild(p);});};document.body.appendChild(btn);}
+        function applyXPOverdrive(){if(document.getElementById('overdrive-overlay'))return;var KEY='coreOsXPOverdriveEnd',end=parseInt(localStorage.getItem(KEY)||'0');if(Date.now()>end)return;var el=document.createElement('div');el.id='overdrive-overlay';el.style.cssText='position:fixed;bottom:24px;right:24px;background:rgba(8,14,28,0.97);border:1px solid #fbbf24;border-radius:14px;padding:14px 20px;font-family:Share Tech Mono,monospace;font-size:0.68rem;color:#fbbf24;z-index:9990;letter-spacing:1px;box-shadow:0 0 25px rgba(251,191,36,0.4);min-width:170px;cursor:pointer;';el.innerHTML='<div style="font-weight:700;margin-bottom:4px;">\u26A1 XP_OVERDRIVE</div><div id="otimer" style="color:#fcd34d;font-family:Rajdhani,sans-serif;font-size:1.3rem;font-weight:700;"></div><div style="font-size:0.5rem;color:#475569;margin-top:4px;">3x XP ACTIVE</div>';el.onclick=function(){el.remove();};document.body.appendChild(el);(function tick(){var rem=Math.max(0,parseInt(localStorage.getItem(KEY)||'0')-Date.now()),t=document.getElementById('otimer');if(t)t.textContent=String(Math.floor(rem/3600000)).padStart(2,'0')+':'+String(Math.floor((rem%3600000)/60000)).padStart(2,'0')+':'+String(Math.floor((rem%60000)/1000)).padStart(2,'0');if(rem>0)setTimeout(tick,1000);else{if(el.parentNode)el.remove();localStorage.removeItem(KEY);}})();}
+        function applyHabitForge(){document.querySelectorAll('.habit-card').forEach(function(card){if(card.querySelector('.hf-badge'))return;var sn=card.querySelector('.streak-num');var streak=sn?parseInt(sn.textContent||'0'):0;if(streak<7)return;var nm=card.querySelector('.habit-name');if(!nm)return;var b=document.createElement('span');b.className='hf-badge';b.style.cssText='font-size:0.55rem;background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);border-radius:20px;padding:2px 8px;margin-left:8px;font-family:Share Tech Mono,monospace;vertical-align:middle;';b.textContent='\uD83D\uDD28 +15 CR';nm.appendChild(b);});if(!document.getElementById('hf-corner')){var d=document.createElement('div');d.id='hf-corner';d.style.cssText='position:fixed;bottom:64px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#fbbf24;z-index:9990;letter-spacing:1px;';d.textContent='\uD83D\uDD28 HABIT FORGE: +15 CR on 7+ streaks';document.body.appendChild(d);}}
+        function applyCreditInsurance(){if(document.getElementById('ci-corner'))return;var d=document.createElement('div');d.id='ci-corner';d.style.cssText='position:fixed;bottom:104px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(16,185,129,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#10b981;z-index:9990;letter-spacing:1px;';d.textContent='\uD83D\uDD12 CREDIT INSURANCE: ACTIVE';document.body.appendChild(d);}
+        function runFeatureEngine(){
+            var owned=JSON.parse(localStorage.getItem('coreOsOwnedItems')||'[]');
+            owned.forEach(function(name){
+                if(name==='Neural Booster')   applyNeuralBooster();
+                if(name==='Focus Shield')     applyFocusShield();
+                if(name==='Streak Guardian')  applyStreakGuardian();
+                if(name==='Memory Crystal')   applyMemoryCrystal();
+                if(name==='Database Relic')   applyDatabaseRelic();
+                if(name==='XP Overdrive')     applyXPOverdrive();
+                if(name==='Habit Forge')      applyHabitForge();
+                if(name==='Credit Insurance') applyCreditInsurance();
+            });
+        }
+        runFeatureEngine();
+    });
+</script>
+
+    <!-- ── CORE OS Flash Toasts ─────────────────────────────────────────── -->
+    <div id="flash-data" style="display:none"
+         data-messages="{{ get_flashed_messages(with_categories=true) | tojson | e }}">
+    </div>
+    <div id="toast-container" style="
+        position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+        z-index:99999; display:flex; flex-direction:column; gap:10px;
+        align-items:center; pointer-events:none;
+    "></div>
+    <script>
+    (function(){
+        var raw = document.getElementById('flash-data');
+        if(!raw) return;
+        var msgs;
+        try { msgs = JSON.parse(raw.dataset.messages || '[]'); } catch(e){ return; }
+        if(!msgs.length) return;
+        var COLORS = {
+            success: { border:'#10b981', text:'#6ee7b7', icon:'✓' },
+            error:   { border:'#f43f5e', text:'#fda4af', icon:'✕' },
+            info:    { border:'#6366f1', text:'#a5b4fc', icon:'ℹ' },
+            warning: { border:'#fbbf24', text:'#fcd34d', icon:'⚠' },
+        };
+        var container = document.getElementById('toast-container');
+        msgs.forEach(function(pair, idx){
+            var cat = pair[0] || 'info';
+            var msg = pair[1] || '';
+            var c   = COLORS[cat] || COLORS.info;
+            var div = document.createElement('div');
+            div.style.cssText = [
+                'background:rgba(5,8,18,0.97)',
+                'border:1px solid ' + c.border,
+                'border-radius:10px',
+                'padding:10px 18px',
+                'font-family:Share Tech Mono,monospace',
+                'font-size:0.72rem',
+                'color:' + c.text,
+                'letter-spacing:0.5px',
+                'box-shadow:0 4px 24px rgba(0,0,0,0.5)',
+                'display:flex',
+                'align-items:center',
+                'gap:10px',
+                'max-width:480px',
+                'pointer-events:auto',
+                'cursor:pointer',
+                'animation:toastSlide 0.3s ease',
+                'opacity:1',
+                'transition:opacity 0.4s ease',
+            ].join(';');
+            div.innerHTML = '<span style="font-size:1rem">' + c.icon + '</span><span>' + msg + '</span>';
+            div.onclick = function(){ div.style.opacity='0'; setTimeout(function(){ div.remove(); }, 400); };
+            container.appendChild(div);
+            var delay = 4000 + idx * 300;
+            setTimeout(function(){ div.style.opacity='0'; setTimeout(function(){ div.remove(); }, 400); }, delay);
+        });
+        if(!document.getElementById('toast-anim-style')){
+            var s = document.createElement('style');
+            s.id = 'toast-anim-style';
+            s.textContent = '@keyframes toastSlide{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}';
+            document.head.appendChild(s);
+        }
+    })();
+    </script>
+
+</body>
+</html>

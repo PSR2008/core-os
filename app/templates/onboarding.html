@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORE OS — System Initialization</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        :root{--bg:#050810;--accent:#6366f1;--accent2:#22d3ee;--success:#10b981;--gold:#fbbf24;--danger:#f43f5e;--text:#e2e8f0;--dim:#64748b;--border:rgba(99,102,241,0.2)}
+        body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;overflow:hidden;}
+        body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(99,102,241,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;}
+        body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999;}
+
+        .wrap{width:100%;max-width:520px;position:relative;z-index:10;}
+        .logo{font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;letter-spacing:5px;color:var(--dim);text-align:center;margin-bottom:1.8rem;}
+        .logo span{color:var(--accent);}
+
+        /* Progress bar */
+        .progress-wrap{margin-bottom:2rem;}
+        .progress-steps{display:flex;justify-content:space-between;margin-bottom:.7rem;}
+        .progress-step{display:flex;flex-direction:column;align-items:center;gap:.4rem;flex:1;}
+        .step-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-size:.75rem;font-weight:700;transition:.3s;}
+        .step-dot.done{background:var(--success);color:#fff;box-shadow:0 0 12px rgba(16,185,129,.4);}
+        .step-dot.active{background:var(--accent);color:#fff;box-shadow:0 0 12px rgba(99,102,241,.5);animation:stepPulse 2s ease-in-out infinite;}
+        .step-dot.pending{background:rgba(255,255,255,.06);color:var(--dim);border:1px solid var(--border);}
+        .step-label{font-family:'Share Tech Mono',monospace;font-size:.52rem;letter-spacing:1px;color:var(--dim);}
+        .step-label.active{color:var(--accent2);}
+        .progress-bar-track{height:3px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;}
+        .progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--success),var(--accent));border-radius:3px;transition:width .6s ease;}
+        @keyframes stepPulse{0%,100%{box-shadow:0 0 12px rgba(99,102,241,.5)}50%{box-shadow:0 0 20px rgba(99,102,241,.8)}}
+
+        /* Card */
+        .card{background:rgba(8,13,26,0.97);border:1px solid var(--border);border-radius:20px;padding:2.5rem;position:relative;overflow:hidden;box-shadow:0 0 60px rgba(99,102,241,.06),inset 0 1px 0 rgba(255,255,255,.03);}
+        .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),var(--accent2),transparent);}
+
+        .card-tag{font-family:'Share Tech Mono',monospace;font-size:.6rem;letter-spacing:3px;color:var(--accent2);margin-bottom:.6rem;}
+        .card-title{font-family:'Rajdhani',sans-serif;font-size:1.8rem;font-weight:700;margin-bottom:.4rem;}
+        .card-sub{font-size:.85rem;color:var(--dim);line-height:1.7;margin-bottom:2rem;}
+
+        /* Form elements */
+        label{display:block;font-family:'Share Tech Mono',monospace;font-size:.58rem;letter-spacing:2px;color:var(--dim);margin-bottom:.5rem;}
+        input[type=text],input[type=number]{width:100%;background:rgba(255,255,255,.03);border:1px solid var(--border);color:var(--text);padding:.85rem 1rem;border-radius:12px;font-family:'Exo 2',sans-serif;font-size:1rem;outline:none;transition:border-color .25s,box-shadow .25s;}
+        input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.12);}
+        .input-hint{font-family:'Share Tech Mono',monospace;font-size:.56rem;color:var(--dim);margin-top:.4rem;margin-bottom:1.4rem;}
+
+        /* Suggestion chips */
+        .chips{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.4rem;}
+        .chip{font-family:'Share Tech Mono',monospace;font-size:.6rem;padding:.35rem .8rem;border-radius:20px;border:1px solid var(--border);color:var(--dim);cursor:pointer;transition:.2s;background:rgba(255,255,255,.02);}
+        .chip:hover{border-color:var(--accent2);color:var(--accent2);background:rgba(34,211,238,.06);}
+
+        /* Buttons */
+        .btn-primary{width:100%;padding:.9rem;background:linear-gradient(135deg,var(--accent),#4f46e5);border:none;color:#fff;border-radius:12px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;letter-spacing:2px;cursor:pointer;transition:transform .2s,box-shadow .2s;margin-bottom:.8rem;}
+        .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(99,102,241,.45);}
+        .btn-skip{width:100%;padding:.65rem;background:none;border:1px solid var(--border);color:var(--dim);border-radius:12px;font-family:'Share Tech Mono',monospace;font-size:.65rem;letter-spacing:1px;cursor:pointer;transition:.2s;}
+        .btn-skip:hover{border-color:var(--border-bright);color:var(--text);}
+
+        /* XP reward preview */
+        .xp-preview{display:flex;align-items:center;gap:.5rem;padding:.6rem 1rem;border-radius:10px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);margin-bottom:1.5rem;}
+        .xp-preview-text{font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--gold);}
+
+        /* Glow */
+        .glow{position:fixed;border-radius:50%;filter:blur(100px);opacity:.07;pointer-events:none;}
+        .glow-a{width:400px;height:400px;background:var(--accent);top:-100px;right:-100px;}
+        .glow-b{width:300px;height:300px;background:var(--accent2);bottom:-80px;left:-80px;}
+    </style>
+    <script src="{{ url_for('static', filename='motion.js') }}" defer></script>
+</head>
+<body>
+<div class="glow glow-a"></div>
+<div class="glow glow-b"></div>
+
+<div class="wrap">
+    <div class="logo">CORE <span>OS</span></div>
+
+    <!-- Progress indicator -->
+    <div class="progress-wrap">
+        <div class="progress-steps">
+            {% for i, label in [(1,'IDENTITY'),(2,'FIRST_TASK'),(3,'FIRST_HABIT')] %}
+            <div class="progress-step">
+                <div class="step-dot {% if step > i %}done{% elif step == i %}active{% else %}pending{% endif %}">
+                    {% if step > i %}✓{% else %}{{ i }}{% endif %}
+                </div>
+                <div class="step-label {% if step == i %}active{% endif %}">{{ label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="progress-bar-track">
+            <div class="progress-bar-fill" style="width:{{ ((step - 1) / 2 * 100) | round }}%;"></div>
+        </div>
+    </div>
+
+    <div class="card">
+
+        <!-- ── STEP 1: Name ── -->
+        {% if step == 1 %}
+        <div class="card-tag">// STEP_01_OF_03</div>
+        <div class="card-title">Name your operative</div>
+        <div class="card-sub">CORE OS personalizes your dashboard, insights, and identity title based on your name. You can change it later.</div>
+
+        <form method="POST" action="{{ url_for('growth.onboarding_step') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>OPERATIVE_DESIGNATION</label>
+            <input type="text" name="name" placeholder="Your name..." autofocus autocomplete="name" value="{{ operative_name }}" maxlength="60">
+            <div class="input-hint">This is how you'll appear on your profile and share card.</div>
+            <button type="submit" class="btn-primary">CONFIRM NAME → CONTINUE</button>
+            <button type="submit" name="skip" value="1" class="btn-skip">SKIP FOR NOW</button>
+        </form>
+
+        <!-- ── STEP 2: First task ── -->
+        {% elif step == 2 %}
+        <div class="card-tag">// STEP_02_OF_03</div>
+        <div class="card-title">Add your first task</div>
+        <div class="card-sub">What's one thing you need to get done? Adding a task takes 10 seconds and earns your first XP.</div>
+
+        <div class="xp-preview">
+            <span style="font-size:1.1rem;">⚡</span>
+            <span class="xp-preview-text">Complete this step → earn +10 XP and +50 CR immediately</span>
+        </div>
+
+        <form method="POST" action="{{ url_for('growth.onboarding_step') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>TASK_TITLE</label>
+            <input type="text" name="task_title" id="task-input" placeholder="e.g. Review project notes..." autofocus maxlength="200">
+            <div class="input-hint">Or pick a suggestion:</div>
+            <div class="chips">
+                <div class="chip" onclick="setTask('Review emails')">Review emails</div>
+                <div class="chip" onclick="setTask('Plan this week')">Plan this week</div>
+                <div class="chip" onclick="setTask('Exercise session')">Exercise session</div>
+                <div class="chip" onclick="setTask('Read for 30 minutes')">Read 30 min</div>
+                <div class="chip" onclick="setTask('Complete report')">Complete report</div>
+                <div class="chip" onclick="setTask('Drink 8 glasses of water')">Stay hydrated</div>
+            </div>
+            <button type="submit" class="btn-primary">ADD TASK → CONTINUE</button>
+            <button type="submit" name="skip" value="1" class="btn-skip">SKIP — I'LL ADD LATER</button>
+        </form>
+
+        <!-- ── STEP 3: First habit ── -->
+        {% elif step == 3 %}
+        <div class="card-tag">// STEP_03_OF_03</div>
+        <div class="card-title">Create your first habit</div>
+        <div class="card-sub">Habits are daily routines you track. Your streak builds every day you sync — the longest streaks earn the best titles.</div>
+
+        <div class="xp-preview">
+            <span style="font-size:1.1rem;">🔥</span>
+            <span class="xp-preview-text">Complete setup → earn +5 XP and unlock your CORE OS dashboard</span>
+        </div>
+
+        <form method="POST" action="{{ url_for('growth.onboarding_step') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>HABIT_NAME</label>
+            <input type="text" name="habit_name" id="habit-input" placeholder="e.g. Morning workout..." autofocus maxlength="100">
+            <div class="input-hint">Or pick a suggestion:</div>
+            <div class="chips">
+                <div class="chip" onclick="setHabit('Morning workout')">Morning workout</div>
+                <div class="chip" onclick="setHabit('Daily reading')">Daily reading</div>
+                <div class="chip" onclick="setHabit('Meditation')">Meditation</div>
+                <div class="chip" onclick="setHabit('Cold shower')">Cold shower</div>
+                <div class="chip" onclick="setHabit('Journal entry')">Journal entry</div>
+                <div class="chip" onclick="setHabit('No social media before 10am')">No social media AM</div>
+            </div>
+            <button type="submit" class="btn-primary">⚡ INITIALIZE CORE OS</button>
+            <button type="submit" name="skip" value="1" class="btn-skip">SKIP — START WITHOUT HABITS</button>
+        </form>
+        {% endif %}
+
+    </div><!-- .card -->
+</div>
+
+<script>
+function setTask(val){ document.getElementById('task-input').value = val; document.getElementById('task-input').focus(); }
+function setHabit(val){ document.getElementById('habit-input').value = val; document.getElementById('habit-input').focus(); }
+</script>
+</body>
+</html>

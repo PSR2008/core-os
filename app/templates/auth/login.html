@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORE OS — Authenticate</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:       #050810;
+            --bg2:      #080d1a;
+            --accent:   #6366f1;
+            --accent2:  #22d3ee;
+            --success:  #10b981;
+            --danger:   #f43f5e;
+            --gold:     #fbbf24;
+            --text:     #e2e8f0;
+            --text-dim: #64748b;
+            --border:   rgba(99,102,241,0.2);
+            --glow:     rgba(99,102,241,0.35);
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Exo 2', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Grid background */
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background-image:
+                linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+        }
+
+        /* Scanline */
+        body::after {
+            content: '';
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(
+                0deg, transparent, transparent 2px,
+                rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
+            );
+            pointer-events: none; z-index: 9999;
+        }
+
+        .auth-wrap {
+            width: 100%; max-width: 420px;
+            padding: 2rem;
+            position: relative; z-index: 10;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+        .logo-text {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 700;
+            letter-spacing: 6px;
+            color: var(--text);
+        }
+        .logo-text span { color: var(--accent); }
+        .logo-sub {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            letter-spacing: 3px;
+            margin-top: 4px;
+        }
+
+        .card {
+            background: rgba(8, 13, 26, 0.85);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2.5rem;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 60px rgba(99,102,241,0.08), inset 0 1px 0 rgba(255,255,255,0.04);
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+            opacity: 0.6;
+        }
+
+        .card-title {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.65rem;
+            letter-spacing: 3px;
+            color: var(--accent2);
+            margin-bottom: 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        label {
+            display: block;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.6rem;
+            letter-spacing: 2px;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+
+        input[type=text], input[type=password], input[type=email] {
+            width: 100%;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            font-family: 'Exo 2', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+            margin-bottom: 1.2rem;
+        }
+        input:focus {
+            border-color: var(--accent);
+            background: rgba(99,102,241,0.06);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+        }
+
+        .btn {
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent), #4f46e5);
+            border: none;
+            color: #fff;
+            padding: 0.9rem;
+            border-radius: 10px;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 0.5rem;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99,102,241,0.45);
+        }
+        .btn:active { transform: translateY(0); }
+
+        .error-box {
+            background: rgba(244,63,94,0.1);
+            border: 1px solid rgba(244,63,94,0.3);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1.2rem;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--danger);
+            letter-spacing: 0.5px;
+        }
+
+        .footer-link {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+        }
+        .footer-link a {
+            color: var(--accent2);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .footer-link a:hover { color: var(--accent); }
+
+        /* Ambient glow blobs */
+        .glow-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.12;
+            pointer-events: none;
+        }
+        .glow-blob.a { width: 400px; height: 400px; background: var(--accent); top: -100px; right: -100px; }
+        .glow-blob.b { width: 300px; height: 300px; background: var(--accent2); bottom: -80px; left: -80px; }
+    </style>
+</head>
+<body>
+    <div class="glow-blob a"></div>
+    <div class="glow-blob b"></div>
+
+    <div class="auth-wrap">
+        <div class="logo">
+            <div class="logo-text">CORE <span>OS</span></div>
+            <div class="logo-sub">OPERATIVE AUTHENTICATION SYSTEM</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">&#9679; AUTHENTICATE_OPERATIVE</div>
+
+            {% if error %}
+            <div class="error-box">&#9888; {{ error }}</div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('auth.login') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <label>OPERATIVE_ID</label>
+                <input type="text" name="username" placeholder="username" autocomplete="username" autofocus required value="{{ prefill or '' }}">
+
+                <label>ACCESS_KEY</label>
+                <input type="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+
+                <button type="submit" class="btn">AUTHENTICATE →</button>
+            </form>
+
+            <div class="footer-link">
+                NEW OPERATIVE? <a href="{{ url_for('auth.register') }}">INITIALIZE ACCOUNT</a><br><br>FORGOT KEY? <a href="{{ url_for('auth.forgot_password') }}">RESET ACCESS KEY</a><br><br><a href="{{ url_for('legal.privacy') }}">Privacy Policy</a> &nbsp;·&nbsp; <a href="{{ url_for('legal.terms') }}">Terms</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

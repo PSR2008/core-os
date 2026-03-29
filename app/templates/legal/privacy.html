@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CORE OS — Privacy Policy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #050810; --bg2: #080d1a; --accent: #6366f1; --accent2: #22d3ee;
+      --success: #10b981; --text: #e2e8f0; --dim: #64748b;
+      --border: rgba(99,102,241,0.15);
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Exo 2', sans-serif; font-size: 1rem; line-height: 1.8;
+      min-height: 100vh;
+    }
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.2rem 2rem; border-bottom: 1px solid var(--border);
+      background: rgba(5,8,16,0.95); position: sticky; top: 0; z-index: 100;
+    }
+    .logo { font-family: 'Rajdhani',sans-serif; font-size: 1.3rem; font-weight: 700;
+      color: var(--text); text-decoration: none; letter-spacing: 2px; }
+    .logo span { color: var(--accent2); }
+    .nav-links { display: flex; gap: 1.5rem; }
+    .nav-links a { color: var(--dim); text-decoration: none; font-size: .9rem;
+      transition: color .2s; }
+    .nav-links a:hover { color: var(--text); }
+    main { max-width: 780px; margin: 0 auto; padding: 4rem 2rem 6rem; }
+    .label {
+      font-family: 'Share Tech Mono', monospace; font-size: .65rem;
+      color: var(--accent2); letter-spacing: 3px; margin-bottom: .75rem;
+    }
+    h1 { font-family: 'Rajdhani', sans-serif; font-size: 2.4rem;
+      font-weight: 700; margin-bottom: .5rem; }
+    .date { font-family: 'Share Tech Mono', monospace; font-size: .75rem;
+      color: var(--dim); margin-bottom: 3rem; border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem; }
+    h2 { font-family: 'Rajdhani', sans-serif; font-size: 1.25rem; font-weight: 700;
+      color: var(--accent2); margin: 2.5rem 0 .75rem;
+      font-family: 'Share Tech Mono', monospace; letter-spacing: 1px; }
+    p { color: #94a3b8; margin-bottom: 1rem; }
+    ul { color: #94a3b8; margin: .5rem 0 1rem 1.5rem; }
+    ul li { margin-bottom: .4rem; }
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    footer { text-align: center; padding: 2rem; border-top: 1px solid var(--border);
+      font-family: 'Share Tech Mono', monospace; font-size: .65rem; color: var(--dim); }
+  </style>
+</head>
+<body>
+<nav>
+  <a class="logo" href="{{ url_for('entrance.entrance') }}">CORE <span>OS</span></a>
+  <div class="nav-links">
+    <a href="{{ url_for('entrance.entrance') }}">Home</a>
+    <a href="{{ url_for('legal.terms') }}">Terms</a>
+    <a href="{{ url_for('auth.login') }}">Sign In</a>
+  </div>
+</nav>
+
+<main>
+  <div class="label">// LEGAL_DOCS</div>
+  <h1>Privacy Policy</h1>
+  <div class="date">Effective date: March 28, 2026 &nbsp;·&nbsp; CORE OS</div>
+
+  <p>This Privacy Policy explains what information CORE OS collects, why it is collected, how it is stored, and what rights you have over your data. CORE OS is a personal productivity application. We take your privacy seriously and do not sell your data.</p>
+
+  <h2>// 1. WHAT WE COLLECT</h2>
+  <p>When you create an account and use CORE OS, we collect the following categories of information:</p>
+  <ul>
+    <li><strong>Account information:</strong> username, email address, and a hashed (bcrypt) version of your password. Your plain-text password is never stored.</li>
+    <li><strong>Profile data:</strong> your optional operative name, age, and weekly productivity goals — all provided voluntarily.</li>
+    <li><strong>Task data:</strong> task titles, priorities, due dates, completion timestamps, and status.</li>
+    <li><strong>Habit data:</strong> habit names, sync dates, streaks, and log history.</li>
+    <li><strong>Expense data:</strong> spending amounts, categories, and entry dates. No payment card or bank information is collected.</li>
+    <li><strong>Wellness data:</strong> daily energy, clarity, and mood scores (1–10 scale) and optional free-text notes.</li>
+    <li><strong>Usage data:</strong> basic activity events (e.g. login date, feature used) tied to your user ID. This data is used internally to compute your productivity score and streaks — it is not shared with third-party analytics platforms.</li>
+    <li><strong>Session data:</strong> a secure session cookie to keep you logged in. No tracking cookies are used.</li>
+  </ul>
+
+  <h2>// 2. WHY WE COLLECT IT</h2>
+  <p>All data collected is used exclusively to operate the app and provide you with your personalized CORE OS experience:</p>
+  <ul>
+    <li>To display your dashboard, history, streaks, and analytics</li>
+    <li>To compute productivity scores, threat scores, and AI-style insights from your own data</li>
+    <li>To send password reset emails when you request them</li>
+    <li>To maintain your session so you stay logged in</li>
+    <li>To prevent abuse and enforce rate limits</li>
+  </ul>
+  <p>We do not use your data for advertising, profiling, or sale to third parties.</p>
+
+  <h2>// 3. HOW DATA IS STORED</h2>
+  <p>Your data is stored in a PostgreSQL database (in production) or SQLite (in development). Passwords are hashed using bcrypt and never stored in plaintext. Database connections are encrypted in transit. The server is hosted on infrastructure protected by standard cloud security controls.</p>
+  <p>Session cookies are marked <code>HttpOnly</code> and <code>Secure</code> in production, meaning they cannot be accessed by JavaScript and are only transmitted over HTTPS.</p>
+
+  <h2>// 4. THIRD-PARTY SERVICES</h2>
+  <p>CORE OS uses the following third-party services in normal operation:</p>
+  <ul>
+    <li><strong>SMTP email provider</strong> (configured by the operator): used only to send password reset emails. No marketing emails are sent.</li>
+    <li><strong>Google Fonts</strong>: font files are loaded from Google's CDN. Google may log requests as part of their infrastructure. No personal data from your account is shared.</li>
+    <li><strong>Cloudflare CDN</strong>: the Three.js library used for background animations is loaded from Cloudflare's CDN. No personal data is shared.</li>
+  </ul>
+  <p>No advertising networks, analytics SDKs (e.g. Google Analytics, Mixpanel), or data brokers are used.</p>
+
+  <h2>// 5. DATA RETENTION</h2>
+  <p>Your data is retained for as long as your account exists. If you wish to delete your account and all associated data, contact us using the details in Section 7. We will process deletion requests within a reasonable timeframe.</p>
+
+  <h2>// 6. YOUR RIGHTS</h2>
+  <p>You have the right to:</p>
+  <ul>
+    <li><strong>Access:</strong> request a summary of the personal data we hold about you</li>
+    <li><strong>Correction:</strong> update your username, email, or profile information from within the app</li>
+    <li><strong>Deletion:</strong> request deletion of your account and all associated data</li>
+    <li><strong>Portability:</strong> request an export of your data in a machine-readable format</li>
+  </ul>
+  <p>To exercise any of these rights, contact us at the address in Section 7.</p>
+
+  <h2>// 7. CONTACT</h2>
+  <p>If you have questions, concerns, or requests relating to this Privacy Policy or your personal data, please contact the operator of this CORE OS instance. This policy applies to the specific deployment you are using; contact details are provided by the operator of that deployment.</p>
+
+  <h2>// 8. CHANGES TO THIS POLICY</h2>
+  <p>If this Privacy Policy is updated in a material way, the effective date at the top of this page will change. Continued use of CORE OS after a policy update constitutes acceptance of the updated terms.</p>
+</main>
+
+<footer>© 2026 CORE OS &nbsp;·&nbsp; <a href="{{ url_for('legal.privacy') }}">Privacy Policy</a> &nbsp;·&nbsp; <a href="{{ url_for('legal.terms') }}">Terms</a></footer>
+</body>
+</html>

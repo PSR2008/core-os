@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:title" content="CORE OS — {{ share_user.operative_name or share_user.username }}'s Progress">
+    <meta property="og:description" content="{{ title.title }} · Lv.{{ share_user.level }} · {{ prod.score }}/100 Productivity Score">
+    <title>CORE OS — {{ share_user.operative_name or share_user.username }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        :root{--bg:#050810;--accent:#6366f1;--accent2:#22d3ee;--success:#10b981;--gold:#fbbf24;--danger:#f43f5e;--text:#e2e8f0;--dim:#64748b;--border:rgba(99,102,241,0.2)}
+        body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;overflow-x:hidden;}
+        body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(99,102,241,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;}
+
+        .card{width:100%;max-width:520px;background:rgba(8,13,26,0.97);border:1px solid rgba(99,102,241,0.35);border-radius:20px;padding:2.5rem;position:relative;overflow:hidden;box-shadow:0 0 80px rgba(99,102,241,0.12),inset 0 1px 0 rgba(255,255,255,0.04);}
+        .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),var(--accent2),var(--success),transparent);}
+
+        /* Glows */
+        .glow-a{position:absolute;width:300px;height:300px;background:var(--accent);border-radius:50%;filter:blur(100px);opacity:0.06;top:-80px;right:-80px;pointer-events:none;}
+        .glow-b{position:absolute;width:200px;height:200px;background:var(--accent2);border-radius:50%;filter:blur(80px);opacity:0.05;bottom:-60px;left:-60px;pointer-events:none;}
+
+        /* Header */
+        .logo{font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:4px;color:var(--dim);margin-bottom:2rem;}
+        .logo span{color:var(--accent);}
+
+        /* Operative name */
+        .op-name{font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;letter-spacing:2px;line-height:1.1;margin-bottom:.3rem;}
+        .op-title{display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border-radius:20px;font-family:'Share Tech Mono',monospace;font-size:.65rem;letter-spacing:1.5px;margin-bottom:1.8rem;border:1px solid;}
+
+        /* Stats grid */
+        .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.8rem;}
+        .stat-box{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center;}
+        .stat-val{font-family:'Rajdhani',sans-serif;font-size:1.8rem;font-weight:700;line-height:1;}
+        .stat-lbl{font-family:'Share Tech Mono',monospace;font-size:.52rem;color:var(--dim);letter-spacing:1.5px;margin-top:.3rem;}
+
+        /* Productivity bar */
+        .prod-section{margin-bottom:1.8rem;}
+        .prod-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.6rem;}
+        .prod-label{font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--dim);letter-spacing:2px;}
+        .prod-val{font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;}
+        .prod-bar-track{height:8px;background:rgba(255,255,255,0.06);border-radius:10px;overflow:hidden;}
+        .prod-bar-fill{height:100%;border-radius:10px;transition:width 1.4s cubic-bezier(.22,1,.36,1);}
+
+        /* Achievements */
+        .ach-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1.8rem;}
+        .ach-badge{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .8rem;border-radius:20px;font-family:'Share Tech Mono',monospace;font-size:.58rem;border:1px solid;}
+
+        /* Footer */
+        .footer{display:flex;align-items:center;justify-content:space-between;padding-top:1.5rem;border-top:1px solid var(--border);}
+        .footer-copy{font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--dim);letter-spacing:1px;}
+        .footer-url{font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--accent2);}
+
+        /* Share button (only shown to owner) */
+        .share-cta{display:flex;gap:.8rem;justify-content:center;margin-top:1.8rem;}
+        .share-btn{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.85rem;letter-spacing:1.5px;padding:.6rem 1.4rem;border-radius:10px;text-decoration:none;border:1px solid;transition:.2s;cursor:pointer;}
+        .share-btn-primary{background:linear-gradient(135deg,var(--accent),#4f46e5);color:#fff;border-color:transparent;}
+        .share-btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(99,102,241,0.4);}
+        .share-btn-secondary{background:rgba(255,255,255,0.04);color:var(--dim);border-color:var(--border);}
+        .share-btn-secondary:hover{color:var(--text);border-color:var(--border-bright);}
+
+        @media print{.share-cta,.footer-url{display:none!important;}}
+    </style>
+    <script src="{{ url_for('static', filename='motion.js') }}" defer></script>
+</head>
+<body>
+<div class="card">
+    <div class="glow-a"></div>
+    <div class="glow-b"></div>
+
+    <div class="logo">CORE <span>OS</span></div>
+
+    <div class="op-name">{{ (share_user.operative_name or share_user.username) | upper }}</div>
+    <div class="op-title" style="background:{{ title.color }}18;color:{{ title.color }};border-color:{{ title.color }}44;">
+        {{ title.icon }}&nbsp;{{ title.title | upper }}
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-box">
+            <div class="stat-val" style="color:var(--gold);">{{ share_user.level }}</div>
+            <div class="stat-lbl">LEVEL</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-val" style="color:var(--success);">{{ t_data.completed }}</div>
+            <div class="stat-lbl">TASKS DONE</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-val" style="color:var(--accent2);">{{ h_data.top_streak }}</div>
+            <div class="stat-lbl">BEST STREAK</div>
+        </div>
+    </div>
+
+    <!-- Productivity score bar -->
+    <div class="prod-section">
+        <div class="prod-header">
+            <span class="prod-label">PRODUCTIVITY_SCORE</span>
+            <span class="prod-val" style="color:{{ prod.color }};">{{ prod.score }}/100</span>
+        </div>
+        <div class="prod-bar-track">
+            <div class="prod-bar-fill"
+                 style="width:{{ prod.score }}%;background:linear-gradient(90deg,var(--accent),{{ prod.color }});">
+            </div>
+        </div>
+    </div>
+
+    <!-- XP + login streak -->
+    <div style="display:flex;gap:1rem;margin-bottom:1.8rem;">
+        <div style="flex:1;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:.8rem;text-align:center;">
+            <div style="font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:var(--gold);">{{ share_user.total_xp }} XP</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:.52rem;color:var(--dim);letter-spacing:1px;margin-top:2px;">TOTAL EXPERIENCE</div>
+        </div>
+        {% if share_user.login_streak >= 2 %}
+        <div style="flex:1;background:rgba(244,63,94,0.06);border:1px solid rgba(244,63,94,0.2);border-radius:10px;padding:.8rem;text-align:center;">
+            <div style="font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:var(--danger);">🔥 {{ share_user.login_streak }}d</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:.52rem;color:var(--dim);letter-spacing:1px;margin-top:2px;">LOGIN STREAK</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Achievements -->
+    {% if top_ach %}
+    <div class="ach-row">
+        {% for ua in top_ach %}
+        <div class="ach-badge" style="background:{{ ua.achievement.tier_color }}14;color:{{ ua.achievement.tier_color }};border-color:{{ ua.achievement.tier_color }}40;">
+            {{ ua.achievement.icon }}&nbsp;{{ ua.achievement.name }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="footer-copy">GENERATED BY CORE OS</div>
+        <div class="footer-url">coreos.app</div>
+    </div>
+
+    <!-- Share / back CTAs -->
+    <div class="share-cta">
+        <button onclick="copyLink()" class="share-btn share-btn-primary">📋 COPY SHARE LINK</button>
+        <a href="{{ url_for('dashboard.index') }}" class="share-btn share-btn-secondary">← RETURN</a>
+    </div>
+</div>
+
+<script>
+function copyLink(){
+    var url = window.location.href;
+    if(navigator.clipboard){
+        navigator.clipboard.writeText(url).then(function(){
+            var btn = event.target.closest('button');
+            var orig = btn.textContent;
+            btn.textContent = '✅ COPIED!';
+            setTimeout(function(){ btn.textContent = orig; }, 2000);
+        });
+    } else {
+        var inp = document.createElement('input');
+        inp.value = url;
+        document.body.appendChild(inp);
+        inp.select();
+        document.execCommand('copy');
+        inp.remove();
+    }
+}
+</script>
+</body>
+</html>

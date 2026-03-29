@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Matrix | CORE OS</title>
+            <script>
+    (function(){
+        var skinMap = {
+            'crimson': {{ 'true' if crimson_active else 'false' }},
+            'neon':    {{ 'true' if neon_active    else 'false' }},
+            'void':    {{ 'true' if void_active    else 'false' }},
+            'solar':   {{ 'true' if solar_active   else 'false' }},
+        };
+        try { localStorage.setItem('coreOsOwnedItems', JSON.stringify({{ owned_names|tojson }})); } catch(e){}
+        var active = localStorage.getItem('coreOsActiveSkin') || '';
+        // legacy fallback
+        if(!active){
+            if(localStorage.getItem('coreOsSkinEnabled')==='true') active='crimson';
+            else if(localStorage.getItem('coreOsNeonEnabled')==='true') active='neon';
+        }
+        if(active && skinMap[active]) document.documentElement.setAttribute('data-skin', active);
+    })();
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .filter-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:2rem;align-items:center;}
+        .filter-label{font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--text-dim);letter-spacing:2px;margin-right:8px;font-weight:700;}
+        .filter-btn{text-decoration:none;padding:8px 14px;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:0.76rem;font-weight:700;letter-spacing:1px;border:1px solid var(--border);color:var(--text-dim);background:rgba(255,255,255,0.02);transition:0.3s;display:flex;align-items:center;gap:6px;}
+        .filter-btn:hover{border-color:var(--accent);color:var(--accent2);background:rgba(99,102,241,0.08);}
+        .filter-btn.active{background:rgba(99,102,241,0.15);border-color:var(--accent);color:#fff;box-shadow:0 0 15px rgba(99,102,241,0.3);}
+        .count-badge{font-size:0.65rem;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;opacity:0.8;}
+        .task-input-grid{display:grid;grid-template-columns:1fr auto auto auto auto;gap:12px;align-items:center;margin-bottom:0;}
+        .task-input-grid input,.task-input-grid select{background:rgba(255,255,255,0.03);border:1px solid var(--border);color:#fff;padding:0.85rem 1rem;border-radius:8px;font-family:'Exo 2',sans-serif;font-size:0.9rem;outline:none;transition:0.3s;margin-bottom:0;}
+        .task-input-grid select{-webkit-appearance:none;-moz-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236366f1' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-color:rgba(255,255,255,0.03);padding-right:2.5rem;cursor:pointer;}
+        .task-input-grid select option{background:#0d1117;color:#e2e8f0;}
+        .task-input-grid input:focus{border-color:var(--accent);background:rgba(99,102,241,0.08);box-shadow:0 0 12px rgba(99,102,241,0.2);}
+        .init-btn{background:var(--accent);color:#fff;border:none;padding:0.85rem 1.5rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;cursor:pointer;transition:0.3s;text-transform:uppercase;letter-spacing:1px;font-size:0.85rem;margin-bottom:0;}
+        .init-btn:hover{background:var(--accent2);box-shadow:0 8px 20px rgba(99,102,241,0.4);transform:translateY(-2px);}
+        /* .kanban rule defined below */
+        /* .kanban-col rule defined below */
+        /* .col-header rule defined below */
+        /* .task-card rule defined below */
+        
+        .task-card.completed{border-color:rgba(16,185,129,0.15);border-left-color:rgba(16,185,129,0.4);background:rgba(16,185,129,0.02);}
+        .task-card.prio-critical{border-left-color:#f43f5e;}
+        .task-card.prio-high{border-left-color:#fbbf24;}
+        .task-card.prio-med{border-left-color:#818cf8;}
+        .task-card.prio-low{border-left-color:#22d3ee;}
+        .task-main{display:flex;flex-direction:column;gap:8px;}
+        .task-title{font-family:'Exo 2',sans-serif;font-weight:600;font-size:1.05rem;color:var(--text);}
+        .task-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+        .prio-tag{font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;padding:3px 10px;border-radius:6px;text-transform:uppercase;letter-spacing:1.5px;display:inline-flex;align-items:center;gap:5px;}
+        .prio-tag.critical{background:rgba(244,63,94,0.18);color:#f87171;border:1px solid rgba(244,63,94,0.5);box-shadow:0 0 8px rgba(244,63,94,0.2);}
+        .prio-tag.critical::before{content:'●';font-size:0.55rem;color:#f43f5e;}
+        .prio-tag.high{background:rgba(251,191,36,0.18);color:#fcd34d;border:1px solid rgba(251,191,36,0.5);box-shadow:0 0 8px rgba(251,191,36,0.2);}
+        .prio-tag.high::before{content:'●';font-size:0.55rem;color:#fbbf24;}
+        .prio-tag.med{background:rgba(99,102,241,0.18);color:#a5b4fc;border:1px solid rgba(99,102,241,0.5);box-shadow:0 0 8px rgba(99,102,241,0.2);}
+        .prio-tag.med::before{content:'●';font-size:0.55rem;color:#818cf8;}
+        .prio-tag.low{background:rgba(34,211,238,0.18);color:#67e8f9;border:1px solid rgba(34,211,238,0.5);box-shadow:0 0 8px rgba(34,211,238,0.2);}
+        .prio-tag.low::before{content:'●';font-size:0.55rem;color:#22d3ee;}
+        .due-tag{font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--text-dim);}
+        .overdue{color:#f87171;font-weight:bold;background:rgba(244,63,94,0.1);padding:2px 6px;border-radius:4px;border:1px solid rgba(244,63,94,0.3);}
+        .complete-btn{text-decoration:none;width:36px;height:36px;border-radius:10px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-dim);transition:0.3s;background:rgba(255,255,255,0.02);}
+        .complete-btn:hover{border-color:var(--success);color:var(--success);background:rgba(16,185,129,0.1);transform:scale(1.1);}
+        .uncomplete-link{font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--text-dim);text-decoration:none;margin-left:10px;}
+        .uncomplete-link:hover{color:var(--accent);}
+        #confetti-canvas{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:9999;}
+        /* Kanban 3 columns */
+        .kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem;align-items:start;}
+        .kanban-col{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:14px;overflow:hidden;min-height:200px;}
+        .col-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;font-family:'Share Tech Mono',monospace;font-size:0.65rem;letter-spacing:1.5px;font-weight:700;border-bottom:1px solid var(--border);}
+        .col-todo   {background:rgba(99,102,241,0.08); color:#818cf8;}
+        .col-inprog {background:rgba(251,191,36,0.08); color:#fbbf24;}
+        .col-done   {background:rgba(16,185,129,0.08); color:#10b981;}
+        .col-count{font-size:0.7rem;background:rgba(255,255,255,0.06);padding:2px 8px;border-radius:20px;}
+        .col-body{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:160px;}
+        .col-empty{text-align:center;padding:2rem 1rem;color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:0.65rem;border:1px dashed var(--border);border-radius:8px;margin:4px;}
+        .task-card{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;transition:0.2s;cursor:grab;position:relative;}
+        .task-card:hover{border-color:var(--accent);background:rgba(99,102,241,0.07);}
+        .task-card.in-progress{border-color:rgba(251,191,36,0.35);background:rgba(251,191,36,0.04);}
+        .task-card.completed{opacity:0.55;}
+        .task-card.drag-over{border-color:var(--cyan)!important;box-shadow:0 0 15px rgba(34,211,238,0.2);}
+        .task-card[draggable]:active{opacity:0.5;cursor:grabbing;}
+        .kanban-col.drop-active{border-color:var(--accent);background:rgba(99,102,241,0.05);}
+        .drag-handle{color:var(--text-dim);font-size:0.9rem;cursor:grab;flex-shrink:0;opacity:0.5;}
+        .task-main{flex:1;min-width:0;}
+        .task-actions{display:flex;gap:6px;flex-shrink:0;}
+        .del-btn{text-decoration:none;width:26px;height:26px;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--danger);opacity:0.4;transition:0.2s;font-size:1rem;}
+        .del-btn:hover{opacity:1;border-color:var(--danger);background:rgba(244,63,94,0.1);}
+        @media(max-width:900px){.kanban{grid-template-columns:1fr;}}
+        @media(max-width:768px){.task-input-grid{grid-template-columns:1fr;}.filter-btn{padding:6px 10px;font-size:0.72rem;}}
+    </style>
+    <script src="{{ url_for('static', filename='motion.js') }}" defer></script>
+</head>
+<body>
+    <canvas id="confetti-canvas"></canvas>
+    <button class="menu-toggle" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+    <nav class="sidebar">
+        <div class="sidebar-logo">CORE <span>OS</span></div>
+        <div class="hud-card">
+            <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--gold);font-weight:700;margin-bottom:5px;font-family:'Share Tech Mono',monospace;">
+                <span>LVL {{ lvl }}</span><span>{{ balance }} CR</span>
+            </div>
+            <div class="xp-bar"><div class="xp-fill" style="width:{{ lvl_pc }}%"></div></div>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard.index') }}" class="nav-link">&#128202; Dashboard</a>
+            <a href="{{ url_for('tasks.tasks') }}" class="nav-link active">&#128197; Task Matrix</a>
+            <a href="{{ url_for('habits.habits') }}" class="nav-link">&#9203; Habit Sync</a>
+            <a href="{{ url_for('wellness.wellness') }}" class="nav-link">&#129504; Neural Lab</a>
+            <a href="{{ url_for('expenses.expenses') }}" class="nav-link">&#128184; Wallet</a>
+            <a href="{{ url_for('shop.shop') }}" class="nav-link">&#128722; Shop</a>
+        <a href="{{ url_for('profile.profile') }}" class="nav-link{% if request.path == '/profile' %} active{% endif %}">👤 Profile</a>
+        </div>
+        <form method="POST" action="{{ url_for('auth.logout') }}" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="disconnect-btn">⏻ DISCONNECT</button></form>
+    </nav>
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <div style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:var(--accent);letter-spacing:3px;margin-bottom:0.5rem;">// TACTICAL_OVERVIEW</div>
+                <h1>TASK_MATRIX</h1>
+            </div>
+        </div>
+        <div class="glass-card" style="margin-bottom:1.5rem;">
+            <h3 style="margin-bottom:1rem;">[ NEW_OBJECTIVE ]</h3>
+            <form action="{{ url_for('tasks.tasks') }}" method="POST" class="task-input-grid">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="task" placeholder="IDENTIFY_NEW_OBJECTIVE..." required autocomplete="off">
+                <select name="priority">
+                    <option value="LOW">LOW_PRIORITY</option>
+                    <option value="MED" selected>MED_PRIORITY</option>
+                    <option value="HIGH">HIGH_PRIORITY</option>
+                    <option value="CRITICAL">CRITICAL_THREAT</option>
+                </select>
+                <input type="date" name="due_date">
+                <input type="time" name="due_time" style="flex:0 0 auto;width:auto;">
+                <button type="submit" class="init-btn">INITIALIZE</button>
+            </form>
+        </div>
+        <div class="filter-bar">
+            <span class="filter-label">SORT_BY_THREAT:</span>
+            <a href="{{ url_for('tasks.tasks', filter='ALL') }}" class="filter-btn {% if filter_priority=='ALL' %}active{% endif %}">ALL_UNITS</a>
+            <a href="{{ url_for('tasks.tasks', filter='CRITICAL') }}" class="filter-btn {% if filter_priority=='CRITICAL' %}active{% endif %}">CRITICAL <span class="count-badge">{{ priority_counts.CRITICAL }}</span></a>
+            <a href="{{ url_for('tasks.tasks', filter='HIGH') }}" class="filter-btn {% if filter_priority=='HIGH' %}active{% endif %}">HIGH <span class="count-badge">{{ priority_counts.HIGH }}</span></a>
+            <a href="{{ url_for('tasks.tasks', filter='MED') }}" class="filter-btn {% if filter_priority=='MED' %}active{% endif %}">MED <span class="count-badge">{{ priority_counts.MED }}</span></a>
+            <a href="{{ url_for('tasks.tasks', filter='LOW') }}" class="filter-btn {% if filter_priority=='LOW' %}active{% endif %}">LOW <span class="count-badge">{{ priority_counts.LOW }}</span></a>
+        </div>
+        <div class="kanban" id="kanban-board">
+            <!-- TO_DO COLUMN -->
+            <div class="kanban-col" data-status="todo" ondragover="onDragOver(event)" ondrop="onDrop(event,'todo')">
+                <div class="col-header col-todo"><span>⬜ TO_DO</span><span class="col-count" id="cnt-todo">0</span></div>
+                <div class="col-body" id="col-todo">
+                {% for t in active if (t.status == 'todo' or t.status is none or t.status == '') %}
+                <div class="task-card prio-{{ t.priority|lower }}" draggable="true" id="tc-{{ t.id }}" data-id="{{ t.id }}" ondragstart="onDragStart(event,{{ t.id }})">
+                    <div class="drag-handle">⠿</div>
+                    <div class="task-main">
+                        <div class="task-title">{{ t.title }}</div>
+                        <div class="task-meta">
+                            <span class="prio-tag {{ t.priority|lower }}">{{ t.priority }}</span>
+                            {% if t.due_date %}
+                            <span class="due-tag {% if t.due_date and t.due_date.strftime('%Y-%m-%d') < today_str %}overdue{% endif %}">
+                                ⊙ {{ t.due_date.strftime('%Y-%m-%d') if t.due_date else '' }}{% if t.due_time %} {{ t.due_time }}{% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="task-actions">
+                        <form method="POST" action="{{ url_for('tasks.complete_task', id=t.id) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="complete-btn" title="DONE">✓</button></form>
+                        <form method="POST" action="{{ url_for('tasks.delete_task', id=t.id) }}" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" style="background:none;border:none;cursor:pointer;padding:0;">×</button></form>
+                    </div>
+                </div>
+                {% else %}
+                <div class="col-empty">NO_OBJECTIVES_IN_QUEUE</div>
+                {% endfor %}
+                </div>
+            </div>
+            <!-- IN PROGRESS COLUMN -->
+            <div class="kanban-col" data-status="inprogress" ondragover="onDragOver(event)" ondrop="onDrop(event,'inprogress')">
+                <div class="col-header col-inprog"><span>🔄 IN_PROGRESS</span><span class="col-count" id="cnt-inprogress">0</span></div>
+                <div class="col-body" id="col-inprogress">
+                {% for t in active if t.status == 'inprogress' %}
+                <div class="task-card prio-{{ t.priority|lower }} in-progress" draggable="true" id="tc-{{ t.id }}" data-id="{{ t.id }}" ondragstart="onDragStart(event,{{ t.id }})">
+                    <div class="drag-handle">⠿</div>
+                    <div class="task-main">
+                        <div class="task-title">{{ t.title }}</div>
+                        <div class="task-meta">
+                            <span class="prio-tag {{ t.priority|lower }}">{{ t.priority }}</span>
+                            {% if t.due_date %}
+                            <span class="due-tag {% if t.due_date and t.due_date.strftime('%Y-%m-%d') < today_str %}overdue{% endif %}">
+                                ⊙ {{ t.due_date.strftime('%Y-%m-%d') if t.due_date else '' }}{% if t.due_time %} {{ t.due_time }}{% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="task-actions">
+                        <form method="POST" action="{{ url_for('tasks.complete_task', id=t.id) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="complete-btn" title="DONE">✓</button></form>
+                        <form method="POST" action="{{ url_for('tasks.delete_task', id=t.id) }}" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" style="background:none;border:none;cursor:pointer;padding:0;">×</button></form>
+                    </div>
+                </div>
+                {% else %}
+                <div class="col-empty">DRAG_TASKS_HERE_TO_START</div>
+                {% endfor %}
+                </div>
+            </div>
+            <!-- DONE COLUMN -->
+            <div class="kanban-col" data-status="done" ondragover="onDragOver(event)" ondrop="onDrop(event,'done')">
+                <div class="col-header col-done"><span>✅ COMPLETED</span><span class="col-count" id="cnt-done">0</span></div>
+                <div class="col-body" id="col-done">
+                {% for t in done %}
+                <div class="task-card completed" draggable="true" id="tc-{{ t.id }}" data-id="{{ t.id }}" ondragstart="onDragStart(event,{{ t.id }})">
+                    <div class="drag-handle">⠿</div>
+                    <div class="task-main">
+                        <div class="task-title" style="text-decoration:line-through;opacity:0.5;">{{ t.title }}</div>
+                        <div class="task-meta">
+                            <span style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--success);opacity:0.7;">✓ {{ t.completed_at }}</span>
+                            <form method="POST" action="{{ url_for('tasks.uncomplete_task', id=t.id) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="uncomplete-link" style="background:none;border:none;cursor:pointer;font-family:inherit;font-size:inherit;color:inherit;padding:0;">[ REACTIVATE ]</button></form>
+                        </div>
+                    </div>
+                    <form method="POST" action="{{ url_for('tasks.delete_task', id=t.id) }}" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" style="opacity:0.4;">×</button></form>
+                </div>
+                {% endfor %}
+                {% if done_pages > 1 %}
+                <div style="display:flex;justify-content:center;gap:.5rem;padding:.8rem 0;">
+                    {% if done_page > 1 %}<a href="{{ url_for('tasks.tasks', done_page=done_page-1) }}" style="font-family:'Share Tech Mono',monospace;font-size:.6rem;padding:.3rem .7rem;border:1px solid var(--border);border-radius:7px;color:var(--text-dim);text-decoration:none;">← PREV</a>{% endif %}
+                    <span style="font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--text-dim);align-self:center;">{{ done_page }}/{{ done_pages }} ({{ done_total }} done)</span>
+                    {% if done_page < done_pages %}<a href="{{ url_for('tasks.tasks', done_page=done_page+1) }}" style="font-family:'Share Tech Mono',monospace;font-size:.6rem;padding:.3rem .7rem;border:1px solid var(--border);border-radius:7px;color:var(--text-dim);text-decoration:none;">NEXT →</a>{% endif %}
+                </div>
+                {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+    <script>
+        /* ── KANBAN DRAG & DROP ── */
+        var dragId = null;
+        function onDragStart(e, id){
+            dragId = id;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', id);
+            document.getElementById('tc-'+id).style.opacity = '0.4';
+        }
+        // Blueprint-qualified URLs for JS fetch calls (set by Jinja at render time)
+    var COREOS_URLS = {
+        completeTask:   "{{ url_for('tasks.complete_task', id=0) }}".replace('/0', '/'),
+        updateStatus:   "{{ url_for('tasks.update_task_status', id=0) }}".replace('/0', '/'),
+        tasksConfetti:  "{{ url_for('tasks.tasks', confetti='1') }}"
+    };
+
+    function onDragOver(e){
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            var col = e.currentTarget;
+            col.classList.add('drop-active');
+        }
+        function onDrop(e, status){
+            e.preventDefault();
+            var col = e.currentTarget;
+            col.classList.remove('drop-active');
+            var id = parseInt(e.dataTransfer.getData('text/plain') || dragId);
+            if(!id) return;
+            var card = document.getElementById('tc-'+id);
+            if(card) card.style.opacity = '1';
+            // Phase 5: drag-to-done uses POST via fetch (was unsafe GET)
+            if(status === 'done'){
+                var csrf = document.querySelector('meta[name="csrf-token"]');
+                var token = csrf ? csrf.getAttribute('content') : '';
+                fetch(COREOS_URLS.completeTask + id, {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/x-www-form-urlencoded', 'X-CSRFToken': token},
+                    body: 'csrf_token=' + encodeURIComponent(token)
+                }).then(function(){ window.location.href=COREOS_URLS.tasksConfetti; });
+                return;
+            }
+            fetch(COREOS_URLS.updateStatus + id, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({status: status})
+            }).then(function(r){ return r.json(); }).then(function(d){
+                if(d.ok) window.location.reload();
+            });
+        }
+        document.addEventListener('dragend', function(){
+            document.querySelectorAll('.task-card').forEach(function(c){ c.style.opacity='1'; });
+            document.querySelectorAll('.kanban-col').forEach(function(c){ c.classList.remove('drop-active'); });
+        });
+        // Update column counts
+        function updateColCounts(){
+            ['todo','inprogress','done'].forEach(function(st){
+                var col = document.getElementById('col-'+st);
+                var cnt = document.getElementById('cnt-'+st);
+                if(col && cnt) cnt.textContent = col.querySelectorAll('.task-card').length;
+            });
+        }
+        document.addEventListener('DOMContentLoaded', function(){ updateColCounts(); });
+
+        function toggleSidebar(){
+            document.body.classList.toggle('sidebar-closed');
+            localStorage.setItem('sidebarStatus',document.body.classList.contains('sidebar-closed')?'closed':'open');
+        }
+        window.onload=function(){
+            if(localStorage.getItem('sidebarStatus')==='closed') document.body.classList.add('sidebar-closed');
+            if("{{ confetti }}"==="1") launchConfetti();
+        };
+        function launchConfetti(){
+            var canvas=document.getElementById('confetti-canvas'),ctx=canvas.getContext('2d'),animId=null,stopped=false;
+            function resize(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight; }
+            resize(); window.addEventListener('resize',resize);
+            var colors=['#6366f1','#22d3ee','#10b981','#fbbf24','#f43f5e','#a78bfa'];
+            var pieces=Array.from({length:160},function(){return{
+                x:Math.random()*canvas.width, y:-20-Math.random()*300,
+                w:Math.random()*11+4, h:Math.random()*5+2,
+                color:colors[Math.floor(Math.random()*colors.length)],
+                vx:(Math.random()-0.5)*5, vy:Math.random()*2.5+1.5,
+                vrot:(Math.random()-0.5)*0.22, rot:Math.random()*Math.PI*2, alpha:1
+            };});
+            function update(){
+                if(stopped) return;
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                var any=false;
+                pieces.forEach(function(p){
+                    p.x+=p.vx; p.y+=p.vy; p.vy+=0.06; p.rot+=p.vrot;
+                    if(p.y>canvas.height*0.78) p.alpha-=0.02;
+                    p.alpha=Math.max(0,p.alpha);
+                    if(p.alpha>0&&p.y<canvas.height+10) any=true;
+                    if(p.alpha<=0) return;
+                    ctx.save(); ctx.globalAlpha=p.alpha; ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+                    ctx.fillStyle=p.color; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
+                });
+                if(any){ animId=requestAnimationFrame(update); } else { cleanup(); }
+            }
+            function cleanup(){ stopped=true; if(animId) cancelAnimationFrame(animId); ctx.clearRect(0,0,canvas.width,canvas.height); window.removeEventListener('resize',resize); }
+            setTimeout(cleanup,5500); animId=requestAnimationFrame(update);
+        }
+
+    /* ══ CORE OS FEATURE ENGINE ══ */
+    document.addEventListener('DOMContentLoaded', function(){
+        var owned = JSON.parse(localStorage.getItem('coreOsOwnedItems')||'[]');
+        if(!owned.length) return;
+
+        
+        function applyNeuralBooster(){var xp=document.querySelector('.xp-fill');if(!xp)return;xp.style.background='linear-gradient(90deg,#f43f5e,#f97316,#fbbf24,#10b981,#22d3ee,#6366f1)';xp.style.backgroundSize='200% 100%';xp.style.animation='nbRainbow 3s linear infinite';if(!document.getElementById('nb-style')){var s=document.createElement('style');s.id='nb-style';s.textContent='@keyframes nbRainbow{0%{background-position:0% 50%}100%{background-position:200% 50%}}';document.head.appendChild(s);}}
+        function applyFocusShield(){if(document.getElementById('focus-overlay'))return;var KEY='coreOsFocusEnd',end=parseInt(localStorage.getItem(KEY)||'0');if(Date.now()>end)return;var el=document.createElement('div');el.id='focus-overlay';el.style.cssText='position:fixed;bottom:24px;right:24px;background:rgba(8,14,28,0.97);border:1px solid #6366f1;border-radius:14px;padding:14px 20px;font-family:Share Tech Mono,monospace;font-size:0.68rem;color:#818cf8;z-index:9990;letter-spacing:1px;box-shadow:0 0 25px rgba(99,102,241,0.4);min-width:170px;cursor:pointer;';el.innerHTML='<div style="font-weight:700;margin-bottom:4px;">\uD83D\uDEE1\uFE0F FOCUS_SHIELD</div><div id="ftimer" style="color:#22d3ee;font-family:Rajdhani,sans-serif;font-size:1.3rem;font-weight:700;"></div><div style="font-size:0.5rem;color:#475569;margin-top:4px;">click to dismiss</div>';el.onclick=function(){localStorage.removeItem(KEY);el.remove();};document.body.appendChild(el);(function tick(){var rem=Math.max(0,parseInt(localStorage.getItem(KEY)||'0')-Date.now()),t=document.getElementById('ftimer');if(t)t.textContent=String(Math.floor(rem/3600000)).padStart(2,'0')+':'+String(Math.floor((rem%3600000)/60000)).padStart(2,'0')+':'+String(Math.floor((rem%60000)/1000)).padStart(2,'0');if(rem>0)setTimeout(tick,1000);else{if(el.parentNode)el.remove();localStorage.removeItem(KEY);}})();}
+        function applyStreakGuardian(){document.querySelectorAll('.habit-card').forEach(function(card){if(card.querySelector('.sg-badge'))return;var nm=card.querySelector('.habit-name');if(!nm)return;var b=document.createElement('span');b.className='sg-badge';b.style.cssText='font-size:0.55rem;background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);border-radius:20px;padding:2px 8px;margin-left:8px;font-family:Share Tech Mono,monospace;vertical-align:middle;';b.textContent='\u23F3 PROTECTED';nm.appendChild(b);});if(!document.getElementById('sg-corner')){var d=document.createElement('div');d.id='sg-corner';d.style.cssText='position:fixed;bottom:24px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#fbbf24;z-index:9990;letter-spacing:1px;';d.textContent='\u23F3 STREAK GUARD: ON';document.body.appendChild(d);}}
+        function applyMemoryCrystal(){if(document.getElementById('crystal-btn'))return;var btn=document.createElement('button');btn.id='crystal-btn';btn.textContent='\uD83D\uDCBE';btn.title='Memory Crystal';btn.style.cssText='position:fixed;bottom:24px;right:168px;width:46px;height:46px;background:linear-gradient(135deg,#6366f1,#22d3ee);border:none;border-radius:12px;font-size:1.2rem;cursor:pointer;z-index:9990;box-shadow:0 6px 20px rgba(99,102,241,0.4);transition:transform 0.2s;';btn.onmouseenter=function(){btn.style.transform='translateY(-3px)';};btn.onmouseleave=function(){btn.style.transform='';};btn.onclick=function(){fetch('/api/stats').then(function(r){return r.json();}).then(function(d){d._exported=new Date().toISOString();var blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='coreos_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);});};document.body.appendChild(btn);}
+        function applyDatabaseRelic(){if(document.getElementById('relic-btn'))return;var btn=document.createElement('button');btn.id='relic-btn';btn.textContent='\uD83D\uDCCA';btn.title='Database Relic';btn.style.cssText='position:fixed;bottom:24px;right:110px;width:46px;height:46px;background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.45);border-radius:12px;color:#fbbf24;font-size:1.2rem;cursor:pointer;z-index:9990;box-shadow:0 0 20px rgba(251,191,36,0.2);transition:box-shadow 0.2s;';btn.onmouseenter=function(){btn.style.boxShadow='0 0 30px rgba(251,191,36,0.5)';};btn.onmouseleave=function(){btn.style.boxShadow='0 0 20px rgba(251,191,36,0.2)';};btn.onclick=function(){var ex=document.getElementById('relic-panel');if(ex){ex.remove();return;}fetch('/api/stats').then(function(r){return r.json();}).then(function(d){var p=document.createElement('div');p.id='relic-panel';p.style.cssText='position:fixed;bottom:82px;right:24px;background:rgba(5,8,18,0.98);border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:20px 24px;font-family:Share Tech Mono,monospace;font-size:0.66rem;color:#64748b;z-index:9991;letter-spacing:1px;box-shadow:0 0 40px rgba(251,191,36,0.2);min-width:210px;';var tc=d.threat_score>=75?'#f43f5e':d.threat_score>=50?'#fbbf24':'#10b981';p.innerHTML='<div style="color:#fbbf24;font-weight:700;margin-bottom:14px;">\uD83D\uDCCA SYSTEM_LOGS</div><div style="display:flex;justify-content:space-between;margin:6px 0;">XP<span style="color:#818cf8">'+d.total_xp+'</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">LEVEL<span style="color:#22d3ee">'+d.lvl+'</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">BALANCE<span style="color:#fbbf24">'+d.balance+' CR</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">THREAT<span style="color:'+tc+'">'+d.threat_score+'/100</span></div><button onclick="this.parentElement.remove()" style="margin-top:12px;background:none;border:1px solid #1e293b;color:#475569;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.58rem;width:100%;">[ CLOSE ]</button>';document.body.appendChild(p);});};document.body.appendChild(btn);}
+        function applyXPOverdrive(){if(document.getElementById('overdrive-overlay'))return;var KEY='coreOsXPOverdriveEnd',end=parseInt(localStorage.getItem(KEY)||'0');if(Date.now()>end)return;var el=document.createElement('div');el.id='overdrive-overlay';el.style.cssText='position:fixed;bottom:24px;right:24px;background:rgba(8,14,28,0.97);border:1px solid #fbbf24;border-radius:14px;padding:14px 20px;font-family:Share Tech Mono,monospace;font-size:0.68rem;color:#fbbf24;z-index:9990;letter-spacing:1px;box-shadow:0 0 25px rgba(251,191,36,0.4);min-width:170px;cursor:pointer;';el.innerHTML='<div style="font-weight:700;margin-bottom:4px;">\u26A1 XP_OVERDRIVE</div><div id="otimer" style="color:#fcd34d;font-family:Rajdhani,sans-serif;font-size:1.3rem;font-weight:700;"></div><div style="font-size:0.5rem;color:#475569;margin-top:4px;">3x XP ACTIVE</div>';el.onclick=function(){el.remove();};document.body.appendChild(el);(function tick(){var rem=Math.max(0,parseInt(localStorage.getItem(KEY)||'0')-Date.now()),t=document.getElementById('otimer');if(t)t.textContent=String(Math.floor(rem/3600000)).padStart(2,'0')+':'+String(Math.floor((rem%3600000)/60000)).padStart(2,'0')+':'+String(Math.floor((rem%60000)/1000)).padStart(2,'0');if(rem>0)setTimeout(tick,1000);else{if(el.parentNode)el.remove();localStorage.removeItem(KEY);}})();}
+        function applyHabitForge(){document.querySelectorAll('.habit-card').forEach(function(card){if(card.querySelector('.hf-badge'))return;var sn=card.querySelector('.streak-num');var streak=sn?parseInt(sn.textContent||'0'):0;if(streak<7)return;var nm=card.querySelector('.habit-name');if(!nm)return;var b=document.createElement('span');b.className='hf-badge';b.style.cssText='font-size:0.55rem;background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);border-radius:20px;padding:2px 8px;margin-left:8px;font-family:Share Tech Mono,monospace;vertical-align:middle;';b.textContent='\uD83D\uDD28 +15 CR';nm.appendChild(b);});if(!document.getElementById('hf-corner')){var d=document.createElement('div');d.id='hf-corner';d.style.cssText='position:fixed;bottom:64px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#fbbf24;z-index:9990;letter-spacing:1px;';d.textContent='\uD83D\uDD28 HABIT FORGE: +15 CR on 7+ streaks';document.body.appendChild(d);}}
+        function applyCreditInsurance(){if(document.getElementById('ci-corner'))return;var d=document.createElement('div');d.id='ci-corner';d.style.cssText='position:fixed;bottom:104px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(16,185,129,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#10b981;z-index:9990;letter-spacing:1px;';d.textContent='\uD83D\uDD12 CREDIT INSURANCE: ACTIVE';document.body.appendChild(d);}
+        function runFeatureEngine(){
+            var owned=JSON.parse(localStorage.getItem('coreOsOwnedItems')||'[]');
+            owned.forEach(function(name){
+                if(name==='Neural Booster')   applyNeuralBooster();
+                if(name==='Focus Shield')     applyFocusShield();
+                if(name==='Streak Guardian')  applyStreakGuardian();
+                if(name==='Memory Crystal')   applyMemoryCrystal();
+                if(name==='Database Relic')   applyDatabaseRelic();
+                if(name==='XP Overdrive')     applyXPOverdrive();
+                if(name==='Habit Forge')      applyHabitForge();
+                if(name==='Credit Insurance') applyCreditInsurance();
+            });
+        }
+        runFeatureEngine();
+    });
+    </script>
+
+    <!-- ── CORE OS Flash Toasts ─────────────────────────────────────────── -->
+    <div id="flash-data" style="display:none"
+         data-messages="{{ get_flashed_messages(with_categories=true) | tojson | e }}">
+    </div>
+    <div id="toast-container" style="
+        position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+        z-index:99999; display:flex; flex-direction:column; gap:10px;
+        align-items:center; pointer-events:none;
+    "></div>
+    <script>
+    (function(){
+        var raw = document.getElementById('flash-data');
+        if(!raw) return;
+        var msgs;
+        try { msgs = JSON.parse(raw.dataset.messages || '[]'); } catch(e){ return; }
+        if(!msgs.length) return;
+        var COLORS = {
+            success: { border:'#10b981', text:'#6ee7b7', icon:'✓' },
+            error:   { border:'#f43f5e', text:'#fda4af', icon:'✕' },
+            info:    { border:'#6366f1', text:'#a5b4fc', icon:'ℹ' },
+            warning: { border:'#fbbf24', text:'#fcd34d', icon:'⚠' },
+        };
+        var container = document.getElementById('toast-container');
+        msgs.forEach(function(pair, idx){
+            var cat = pair[0] || 'info';
+            var msg = pair[1] || '';
+            var c   = COLORS[cat] || COLORS.info;
+            var div = document.createElement('div');
+            div.style.cssText = [
+                'background:rgba(5,8,18,0.97)',
+                'border:1px solid ' + c.border,
+                'border-radius:10px',
+                'padding:10px 18px',
+                'font-family:Share Tech Mono,monospace',
+                'font-size:0.72rem',
+                'color:' + c.text,
+                'letter-spacing:0.5px',
+                'box-shadow:0 4px 24px rgba(0,0,0,0.5)',
+                'display:flex',
+                'align-items:center',
+                'gap:10px',
+                'max-width:480px',
+                'pointer-events:auto',
+                'cursor:pointer',
+                'animation:toastSlide 0.3s ease',
+                'opacity:1',
+                'transition:opacity 0.4s ease',
+            ].join(';');
+            div.innerHTML = '<span style="font-size:1rem">' + c.icon + '</span><span>' + msg + '</span>';
+            div.onclick = function(){ div.style.opacity='0'; setTimeout(function(){ div.remove(); }, 400); };
+            container.appendChild(div);
+            var delay = 4000 + idx * 300;
+            setTimeout(function(){ div.style.opacity='0'; setTimeout(function(){ div.remove(); }, 400); }, delay);
+        });
+        if(!document.getElementById('toast-anim-style')){
+            var s = document.createElement('style');
+            s.id = 'toast-anim-style';
+            s.textContent = '@keyframes toastSlide{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}';
+            document.head.appendChild(s);
+        }
+    })();
+    </script>
+
+</body>
+</html>

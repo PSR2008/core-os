@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop | CORE OS</title>
+    <script>
+    (function(){
+        var skinMap={'crimson':{{ 'true' if crimson_active else 'false' }},'neon':{{ 'true' if neon_active else 'false' }},'void':{{ 'true' if void_active else 'false' }},'solar':{{ 'true' if solar_active else 'false' }}};
+        var allOwned={{ owned_names|tojson }};
+        try{localStorage.setItem('coreOsOwnedItems',JSON.stringify(allOwned));}catch(e){}
+        var active=localStorage.getItem('coreOsActiveSkin')||'';
+        if(!active){if(localStorage.getItem('coreOsSkinEnabled')==='true')active='crimson';else if(localStorage.getItem('coreOsNeonEnabled')==='true')active='neon';}
+        if(active&&skinMap[active])document.documentElement.setAttribute('data-skin',active);
+    })();
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1.8rem;margin-bottom:2.5rem;}
+        .item-card{background:linear-gradient(145deg,rgba(99,102,241,0.08),rgba(34,211,238,0.04));border:1px solid rgba(99,102,241,0.35);border-radius:16px;padding:1.8rem;display:flex;flex-direction:column;gap:1.2rem;transition:0.4s cubic-bezier(0.34,1.56,0.64,1);position:relative;overflow:hidden;}
+        .item-card:hover{border-color:var(--cyan);background:linear-gradient(145deg,rgba(99,102,241,0.15),rgba(34,211,238,0.08));box-shadow:0 20px 60px rgba(34,211,238,0.15);transform:translateY(-8px);}
+        .item-card.owned{border-color:rgba(16,185,129,0.4);background:linear-gradient(145deg,rgba(16,185,129,0.06),rgba(34,211,238,0.03));}
+        .item-card.consumed{border-color:rgba(255,255,255,0.1);opacity:0.6;}
+        .item-icon{font-size:2.8rem;text-align:center;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 0 16px var(--cyan));}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+        .item-name{font-family:'Rajdhani',sans-serif;font-size:1.25rem;font-weight:700;color:var(--accent2);}
+        .item-type-tag{font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:1.5px;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:4px;}
+        .type-passive{background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3);}
+        .type-skin{background:rgba(139,92,246,0.15);color:#c084fc;border:1px solid rgba(139,92,246,0.3);}
+        .type-timed{background:rgba(251,191,36,0.15);color:#fcd34d;border:1px solid rgba(251,191,36,0.3);}
+        .type-consumable{background:rgba(244,63,94,0.15);color:#fb7185;border:1px solid rgba(244,63,94,0.3);}
+        .item-desc{font-family:'Share Tech Mono',monospace;font-size:0.78rem;color:var(--text-dim);line-height:1.6;flex:1;}
+        .item-footer{display:flex;gap:0.8rem;align-items:center;margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);flex-wrap:wrap;}
+        .item-price{font-family:'Rajdhani',sans-serif;font-size:1.7rem;font-weight:700;color:var(--gold);white-space:nowrap;}
+        .item-price::after{content:' CR';font-size:1rem;opacity:0.7;}
+        .buy-btn{flex:1;padding:0.75rem 1rem;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:10px;font-family:'Rajdhani',sans-serif;font-weight:700;cursor:pointer;transition:0.3s;text-transform:uppercase;letter-spacing:1px;text-decoration:none;display:block;text-align:center;font-size:0.88rem;min-width:90px;}
+        .buy-btn:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(99,102,241,0.4);}
+        .buy-btn.disabled{opacity:0.45;cursor:not-allowed;background:#333;transform:none;box-shadow:none;pointer-events:none;}
+        .status-badge{font-family:'Share Tech Mono',monospace;font-size:0.68rem;padding:5px 12px;border-radius:6px;font-weight:700;letter-spacing:1px;white-space:nowrap;}
+        .badge-owned{background:rgba(16,185,129,0.15);color:var(--success);border:1px solid rgba(16,185,129,0.4);}
+        .badge-consumed{background:rgba(255,255,255,0.05);color:var(--text-dim);border:1px solid rgba(255,255,255,0.1);}
+        .toggle-btn{font-family:'Share Tech Mono',monospace;font-size:0.6rem;padding:5px 10px;border-radius:6px;cursor:pointer;letter-spacing:1px;transition:0.2s;white-space:nowrap;border:1px solid;}
+        .balance-card{background:linear-gradient(145deg,rgba(251,191,36,0.1),rgba(99,102,241,0.08));border:2px solid var(--gold);border-radius:16px;padding:1.8rem;text-align:center;margin-bottom:2rem;box-shadow:0 0 30px rgba(251,191,36,0.15);}
+        .balance-label{font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--text-dim);margin-bottom:0.4rem;letter-spacing:2px;}
+        .balance-amount{font-family:'Rajdhani',sans-serif;font-size:2.4rem;font-weight:900;color:var(--gold);text-shadow:0 0 20px rgba(251,191,36,0.5);}
+        .balance-amount::after{content:' CR';font-size:1.4rem;opacity:0.7;}
+        .inventory-section{background:linear-gradient(145deg,rgba(99,102,241,0.05),rgba(34,211,238,0.02));border:1px solid var(--border-bright);border-radius:16px;padding:1.8rem;margin-top:2rem;}
+        .inventory-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;}
+        .inventory-item{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:1rem 1.2rem;display:flex;gap:0.8rem;align-items:center;transition:0.3s;}
+        .inventory-item:hover{background:rgba(255,255,255,0.04);border-color:var(--accent);}
+        .inv-icon{font-size:1.8rem;flex-shrink:0;}
+        .inv-name{font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--accent2);font-size:0.9rem;}
+        .inv-date{font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--text-dim);margin-top:2px;}
+        .inv-type-tag{font-family:'Share Tech Mono',monospace;font-size:0.5rem;letter-spacing:1.5px;padding:2px 7px;border-radius:4px;display:inline-block;margin-top:5px;}
+        .sec-head{font-family:'Share Tech Mono',monospace;font-size:0.68rem;color:var(--accent2);letter-spacing:2px;margin-bottom:1.5rem;display:flex;align-items:center;gap:10px;}
+        .sec-head::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);}
+        .overdrive-bar{font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:#fbbf24;letter-spacing:1px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:6px;padding:5px 10px;}
+        .toast-container{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:10px;min-width:320px;}
+        .toast{background:rgba(8,14,28,0.97);border:1px solid var(--border-bright);border-radius:12px;padding:12px 18px;display:flex;align-items:center;gap:12px;font-family:'Share Tech Mono',monospace;font-size:0.78rem;animation:toastIn 0.3s ease;box-shadow:0 8px 30px rgba(0,0,0,0.5);}
+        .toast.success{border-color:rgba(16,185,129,0.5);}
+        .toast.error{border-color:rgba(244,63,94,0.5);}
+        .toast.warning{border-color:rgba(251,191,36,0.5);}
+        .toast-text{flex:1;color:var(--text);}
+        .toast-close{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1rem;padding:0 4px;}
+        @keyframes toastIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    </style>
+    <script src="{{ url_for('static', filename='motion.js') }}" defer></script>
+</head>
+<body>
+<button class="menu-toggle" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+<nav class="sidebar">
+    <div class="sidebar-logo">CORE <span>OS</span></div>
+    <div class="hud-card">
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--gold);font-weight:700;margin-bottom:5px;font-family:'Share Tech Mono',monospace;">
+            <span>LVL {{ lvl }}</span><span>{{ balance }} CR</span>
+        </div>
+        <div class="xp-bar"><div class="xp-fill" style="width:{{ lvl_pc }}%"></div></div>
+    </div>
+    <div class="nav-links">
+        <a href="{{ url_for('dashboard.index') }}" class="nav-link">&#128202; Dashboard</a>
+        <a href="{{ url_for('tasks.tasks') }}"     class="nav-link">&#128197; Task Matrix</a>
+        <a href="{{ url_for('habits.habits') }}"    class="nav-link">&#9203; Habit Sync</a>
+        <a href="{{ url_for('wellness.wellness') }}"  class="nav-link">&#129504; Neural Lab</a>
+        <a href="{{ url_for('expenses.expenses') }}"  class="nav-link">&#128184; Wallet</a>
+        <a href="{{ url_for('shop.shop') }}"      class="nav-link active">&#128722; Shop</a>
+        <a href="{{ url_for('profile.profile') }}" class="nav-link{% if request.path == '/profile' %} active{% endif %}">👤 Profile</a>
+    </div>
+    <form method="POST" action="{{ url_for('auth.logout') }}" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="disconnect-btn">⏻ DISCONNECT</button></form>
+</nav>
+<main class="main-content">
+    <div class="page-header">
+        <div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:var(--accent);letter-spacing:3px;margin-bottom:0.5rem;">// VENDOR_UPLINK</div>
+            <h1>REWARD_SHOP</h1>
+        </div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text-dim);">{{ owned_names|length }} MODULES OWNED</div>
+    </div>
+    <div class="balance-card">
+        <div class="balance-label">AVAILABLE CREDITS</div>
+        <div class="balance-amount">{{ balance }}</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--text-dim);margin-top:0.5rem;">Complete tasks +50 CR &bull; Sync habits +20 CR</div>
+    </div>
+    <div class="sec-head">[ PURCHASABLE_MODULES &mdash; {{ items|length }} TOTAL ]</div>
+    <div class="shop-grid">
+    {% for item in items %}
+        {% set is_owned   = item.name in owned_names %}
+        {% set is_active  = item.name in active_feat_names %}
+        {% set is_consumed= is_owned and not is_active and item.item_type == 'consumable' %}
+        <div class="item-card {% if is_owned and not is_consumed %}owned{% elif is_consumed %}consumed{% endif %}">
+            <div class="item-icon">{{ item.icon }}</div>
+            <div>
+                <div class="item-type-tag type-{{ item.item_type }}">{{ item.item_type|upper }}</div>
+                <div class="item-name">{{ item.name }}</div>
+            </div>
+            <div class="item-desc">{{ item.description }}</div>
+            {% if item.name == 'XP Overdrive' and is_active %}
+            <div class="overdrive-bar" id="overdrive-card-timer">&#9889; LOADING...</div>
+            {% endif %}
+            <div class="item-footer">
+                <div class="item-price">{{ item.cost }}</div>
+                {% if is_consumed %}
+                    <div class="status-badge badge-consumed">&#10003; USED</div>
+                {% elif is_owned and item.item_type == 'skin' %}
+                    <div class="status-badge badge-owned">&#10003; OWNED</div>
+                    {% if item.name == 'Cyberware Skin' %}
+                    <button class="toggle-btn" id="crimsonToggleBtn" onclick="toggleSkin('crimson')">...</button>
+                    {% elif item.name == 'Neon Matrix Skin' %}
+                    <button class="toggle-btn" id="neonToggleBtn" onclick="toggleSkin('neon')">...</button>
+                    {% elif item.name == 'Void Skin' %}
+                    <button class="toggle-btn" id="voidToggleBtn" onclick="toggleSkin('void')">...</button>
+                    {% elif item.name == 'Solar Skin' %}
+                    <button class="toggle-btn" id="solarToggleBtn" onclick="toggleSkin('solar')">...</button>
+                    {% endif %}
+                {% elif is_owned %}
+                    <div class="status-badge badge-owned">&#10003; ACTIVE</div>
+                {% elif balance >= item.cost %}
+                    <form method="POST" action="{{ url_for('shop.buy_item', item=item.name, cost=item.cost) }}" style="display:block;flex:1"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="buy-btn">PURCHASE</button></form>
+                {% else %}
+                    <span class="buy-btn disabled">INSUFFICIENT</span>
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+    {% if inventory %}
+    <div class="inventory-section">
+        <div class="sec-head">[ INSTALLED_HARDWARE &mdash; {{ inventory|length }} ITEMS ]</div>
+        <div class="inventory-grid">
+            {% set icon_map = {'Neural Booster':'🧠','Cyberware Skin':'🎨','Neon Matrix Skin':'💚','Database Relic':'📊','Focus Shield':'🛡️','Memory Crystal':'💾','Streak Guardian':'⏳','XP Overdrive':'⚡','Habit Forge':'🔨','Task Amnesty':'🗑️','Credit Insurance':'🔒','Void Skin':'🌑','Solar Skin':'☀️'} %}
+            {% for inv in inventory %}
+            {% set inv_item = items | selectattr('name','equalto',inv.shop_item.name) | first | default(none) %}
+            <div class="inventory-item">
+                <div class="inv-icon">{{ icon_map.get(inv.shop_item.name, '📦') }}</div>
+                <div style="flex:1;min-width:0;">
+                    <div class="inv-name">{{ inv.shop_item.name }}</div>
+                    <div class="inv-date">📅 {{ inv.purchased_at.strftime('%Y-%m-%d') if inv.purchased_at else '' }}</div>
+                    {% if inv_item %}
+                    <div class="inv-type-tag type-{{ item.item_type }}">{{ inv_item.item_type | upper }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:3rem;border:1px dashed var(--border);border-radius:16px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:0.85rem;">No modules purchased yet. Start building your arsenal! &#128640;</div>
+    {% endif %}
+</main>
+<div class="toast-container" id="toastContainer"></div>
+<script>
+function toggleSidebar(){document.body.classList.toggle('sidebar-closed');localStorage.setItem('sidebarStatus',document.body.classList.contains('sidebar-closed')?'closed':'open');}
+function showToast(msg,type){var c=document.getElementById('toastContainer');var t=document.createElement('div');t.className='toast '+(type||'success');t.innerHTML='<span class="toast-text">'+msg+'</span><button class="toast-close" onclick="this.parentElement.remove()">&#215;</button>';c.appendChild(t);setTimeout(function(){if(t.parentNode)t.remove();},5000);}
+
+var skinMap2={'crimson':{{ 'true' if crimson_active else 'false' }},'neon':{{ 'true' if neon_active else 'false' }},'void':{{ 'true' if void_active else 'false' }},'solar':{{ 'true' if solar_active else 'false' }}};
+var skinLabels={'crimson':'🎨 Cyberware','neon':'💚 Neon Matrix','void':'🌑 Void','solar':'☀️ Solar'};
+var skinTheme={'crimson':{bg:'rgba(225,29,72,0.15)',fg:'#fb7185',bd:'rgba(225,29,72,0.5)'},'neon':{bg:'rgba(0,200,50,0.15)',fg:'#39ff14',bd:'rgba(0,200,50,0.5)'},'void':{bg:'rgba(124,58,237,0.15)',fg:'#a78bfa',bd:'rgba(124,58,237,0.5)'},'solar':{bg:'rgba(245,158,11,0.15)',fg:'#fbbf24',bd:'rgba(245,158,11,0.5)'}};
+var skinOff={bg:'rgba(99,102,241,0.12)',fg:'#818cf8',bd:'rgba(99,102,241,0.3)'};
+function getCurrentSkin(){return document.documentElement.getAttribute('data-skin')||'';}
+function applySkin(skin){
+    if(skin&&skin!=='none'){document.documentElement.setAttribute('data-skin',skin);localStorage.setItem('coreOsActiveSkin',skin);}
+    else{document.documentElement.removeAttribute('data-skin');localStorage.setItem('coreOsActiveSkin','');}
+    updateSkinButtons();
+}
+function toggleSkin(skin){if(getCurrentSkin()===skin){applySkin('none');showToast(skinLabels[skin]+' DISABLED','warning');}else{applySkin(skin);showToast(skinLabels[skin]+' ENABLED!','success');}}
+function toggleCrimson(){toggleSkin('crimson');}
+function toggleNeon(){toggleSkin('neon');}
+function updateSkinButtons(){
+    var cur=getCurrentSkin();
+    ['crimson','neon','void','solar'].forEach(function(sk){
+        var btn=document.getElementById(sk+'ToggleBtn');if(!btn)return;
+        var on=(cur===sk);var c=on?skinTheme[sk]:skinOff;
+        btn.textContent=on?'DISABLE':'ENABLE';
+        btn.style.cssText='font-family:Share Tech Mono,monospace;font-size:0.6rem;padding:5px 10px;border-radius:6px;cursor:pointer;letter-spacing:1px;transition:0.2s;background:'+c.bg+';color:'+c.fg+';border:1px solid '+c.bd+';';
+    });
+}
+
+function startOverdriveCardTimer(){
+    var el=document.getElementById('overdrive-card-timer');
+    if(!el)return;
+    var overdriveUntil='{{ xp_overdrive_until or "" }}';
+    var end=overdriveUntil?new Date(overdriveUntil).getTime():parseInt(localStorage.getItem('coreOsXPOverdriveEnd')||'0');
+    if(!end||Date.now()>end){if(el)el.textContent='&#9889; EXPIRED';return;}
+    (function tick(){var rem=Math.max(0,end-Date.now());var h=String(Math.floor(rem/3600000)).padStart(2,'0'),m=String(Math.floor((rem%3600000)/60000)).padStart(2,'0'),s=String(Math.floor((rem%60000)/1000)).padStart(2,'0');if(el)el.textContent='&#9889; '+h+':'+m+':'+s+' REMAINING';if(rem>0)setTimeout(tick,1000);else if(el)el.textContent='&#9889; EXPIRED';})();
+}
+
+function applyNeuralBooster(){var xp=document.querySelector('.xp-fill');if(!xp)return;xp.style.background='linear-gradient(90deg,#f43f5e,#f97316,#fbbf24,#10b981,#22d3ee,#6366f1)';xp.style.backgroundSize='200% 100%';xp.style.animation='nbRainbow 3s linear infinite';if(!document.getElementById('nb-style')){var s=document.createElement('style');s.id='nb-style';s.textContent='@keyframes nbRainbow{0%{background-position:0% 50%}100%{background-position:200% 50%}}';document.head.appendChild(s);}}
+function applyFocusShield(){if(document.getElementById('focus-overlay'))return;var KEY='coreOsFocusEnd',end=parseInt(localStorage.getItem(KEY)||'0');if(Date.now()>end)return;var el=document.createElement('div');el.id='focus-overlay';el.style.cssText='position:fixed;bottom:24px;right:24px;background:rgba(8,14,28,0.97);border:1px solid #6366f1;border-radius:14px;padding:14px 20px;font-family:Share Tech Mono,monospace;font-size:0.68rem;color:#818cf8;z-index:9990;letter-spacing:1px;box-shadow:0 0 25px rgba(99,102,241,0.4);min-width:170px;cursor:pointer;';el.innerHTML='<div style="font-weight:700;margin-bottom:4px;">&#128737;&#65039; FOCUS_SHIELD</div><div id="ftimer" style="color:#22d3ee;font-family:Rajdhani,sans-serif;font-size:1.3rem;font-weight:700;"></div><div style="font-size:0.5rem;color:#475569;margin-top:4px;">click to dismiss</div>';el.onclick=function(){localStorage.removeItem(KEY);el.remove();};document.body.appendChild(el);(function tick(){var rem=Math.max(0,parseInt(localStorage.getItem(KEY)||'0')-Date.now()),t=document.getElementById('ftimer');if(t)t.textContent=String(Math.floor(rem/3600000)).padStart(2,'0')+':'+String(Math.floor((rem%3600000)/60000)).padStart(2,'0')+':'+String(Math.floor((rem%60000)/1000)).padStart(2,'0');if(rem>0)setTimeout(tick,1000);else{if(el.parentNode)el.remove();localStorage.removeItem(KEY);}})();}
+function applyMemoryCrystal(){if(document.getElementById('crystal-btn'))return;var btn=document.createElement('button');btn.id='crystal-btn';btn.textContent='&#128190;';btn.title='Memory Crystal';btn.style.cssText='position:fixed;bottom:24px;right:168px;width:46px;height:46px;background:linear-gradient(135deg,#6366f1,#22d3ee);border:none;border-radius:12px;font-size:1.2rem;cursor:pointer;z-index:9990;box-shadow:0 6px 20px rgba(99,102,241,0.4);transition:transform 0.2s;';btn.onmouseenter=function(){btn.style.transform='translateY(-3px)';};btn.onmouseleave=function(){btn.style.transform='';};btn.onclick=function(){fetch('/api/stats').then(function(r){return r.json();}).then(function(d){d._exported=new Date().toISOString();var blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='coreos_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);});};document.body.appendChild(btn);}
+function applyDatabaseRelic(){if(document.getElementById('relic-btn'))return;var btn=document.createElement('button');btn.id='relic-btn';btn.textContent='&#128202;';btn.title='Database Relic';btn.style.cssText='position:fixed;bottom:24px;right:110px;width:46px;height:46px;background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.45);border-radius:12px;color:#fbbf24;font-size:1.2rem;cursor:pointer;z-index:9990;box-shadow:0 0 20px rgba(251,191,36,0.2);transition:box-shadow 0.2s;';btn.onmouseenter=function(){btn.style.boxShadow='0 0 30px rgba(251,191,36,0.5)';};btn.onmouseleave=function(){btn.style.boxShadow='0 0 20px rgba(251,191,36,0.2)';};btn.onclick=function(){var ex=document.getElementById('relic-panel');if(ex){ex.remove();return;}fetch('/api/stats').then(function(r){return r.json();}).then(function(d){var p=document.createElement('div');p.id='relic-panel';p.style.cssText='position:fixed;bottom:82px;right:24px;background:rgba(5,8,18,0.98);border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:20px 24px;font-family:Share Tech Mono,monospace;font-size:0.66rem;color:#64748b;z-index:9991;letter-spacing:1px;box-shadow:0 0 40px rgba(251,191,36,0.2);min-width:210px;';var tc=d.threat_score>=75?'#f43f5e':d.threat_score>=50?'#fbbf24':'#10b981';p.innerHTML='<div style="color:#fbbf24;font-weight:700;margin-bottom:14px;font-size:0.72rem;letter-spacing:2px;">&#128202; SYSTEM_LOGS</div><div style="display:flex;justify-content:space-between;margin:6px 0;">XP<span style="color:#818cf8">'+d.total_xp+'</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">LEVEL<span style="color:#22d3ee">'+d.lvl+'</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">BALANCE<span style="color:#fbbf24">'+d.balance+' CR</span></div><div style="display:flex;justify-content:space-between;margin:6px 0;">THREAT<span style="color:'+tc+'">'+d.threat_score+'/100</span></div><button onclick="this.parentElement.remove()" style="margin-top:12px;background:none;border:1px solid #1e293b;color:#475569;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.58rem;width:100%;">[ CLOSE ]</button>';document.body.appendChild(p);});};document.body.appendChild(btn);}
+function applyXPOverdrive(){if(document.getElementById('overdrive-overlay'))return;var KEY='coreOsXPOverdriveEnd',end=parseInt(localStorage.getItem(KEY)||'0');if(Date.now()>end)return;var el=document.createElement('div');el.id='overdrive-overlay';el.style.cssText='position:fixed;bottom:24px;right:24px;background:rgba(8,14,28,0.97);border:1px solid #fbbf24;border-radius:14px;padding:14px 20px;font-family:Share Tech Mono,monospace;font-size:0.68rem;color:#fbbf24;z-index:9990;letter-spacing:1px;box-shadow:0 0 25px rgba(251,191,36,0.4);min-width:170px;cursor:pointer;';el.innerHTML='<div style="font-weight:700;margin-bottom:4px;">&#9889; XP_OVERDRIVE</div><div id="otimer" style="color:#fcd34d;font-family:Rajdhani,sans-serif;font-size:1.3rem;font-weight:700;"></div><div style="font-size:0.5rem;color:#475569;margin-top:4px;">3&#215; XP ACTIVE</div>';el.onclick=function(){el.remove();};document.body.appendChild(el);(function tick(){var rem=Math.max(0,parseInt(localStorage.getItem(KEY)||'0')-Date.now()),t=document.getElementById('otimer');if(t)t.textContent=String(Math.floor(rem/3600000)).padStart(2,'0')+':'+String(Math.floor((rem%3600000)/60000)).padStart(2,'0')+':'+String(Math.floor((rem%60000)/1000)).padStart(2,'0');if(rem>0)setTimeout(tick,1000);else{if(el.parentNode)el.remove();localStorage.removeItem(KEY);}})();}
+function applyStreakGuardian(){if(!document.getElementById('sg-corner')){var d=document.createElement('div');d.id='sg-corner';d.style.cssText='position:fixed;bottom:24px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#fbbf24;z-index:9990;letter-spacing:1px;';d.textContent='&#9203; STREAK GUARD: ON';document.body.appendChild(d);}}
+function applyHabitForge(){if(document.getElementById('forge-ind'))return;var d=document.createElement('div');d.id='forge-ind';d.style.cssText='position:fixed;bottom:64px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#fbbf24;z-index:9990;letter-spacing:1px;';d.textContent='&#128296; HABIT FORGE: +15 CR on 7+ streaks';document.body.appendChild(d);}
+function applyCreditInsurance(){if(document.getElementById('ci-ind'))return;var d=document.createElement('div');d.id='ci-ind';d.style.cssText='position:fixed;bottom:104px;left:calc(280px + 24px);background:rgba(8,14,28,0.95);border:1px solid rgba(16,185,129,0.4);border-radius:10px;padding:8px 14px;font-family:Share Tech Mono,monospace;font-size:0.62rem;color:#10b981;z-index:9990;letter-spacing:1px;';d.textContent='&#128274; CREDIT INSURANCE: ACTIVE';document.body.appendChild(d);}
+
+function runFeatureEngine(){
+    var owned=JSON.parse(localStorage.getItem('coreOsOwnedItems')||'[]');
+    owned.forEach(function(name){
+        if(name==='Neural Booster')   applyNeuralBooster();
+        if(name==='Focus Shield')     applyFocusShield();
+        if(name==='Streak Guardian')  applyStreakGuardian();
+        if(name==='Memory Crystal')   applyMemoryCrystal();
+        if(name==='Database Relic')   applyDatabaseRelic();
+        if(name==='XP Overdrive')     applyXPOverdrive();
+        if(name==='Habit Forge')      applyHabitForge();
+        if(name==='Credit Insurance') applyCreditInsurance();
+    });
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+    if(localStorage.getItem('sidebarStatus')==='closed') document.body.classList.add('sidebar-closed');
+    var serverOwned={{ owned_names|tojson }};
+    try{localStorage.setItem('coreOsOwnedItems',JSON.stringify(serverOwned));}catch(e){}
+    var overdriveUntil='{{ xp_overdrive_until or "" }}';
+    if(overdriveUntil){var endMs=new Date(overdriveUntil).getTime();if(endMs>Date.now())localStorage.setItem('coreOsXPOverdriveEnd',String(endMs));}
+    // Migrate legacy skin keys
+    if(!localStorage.getItem('coreOsActiveSkin')){
+        if(localStorage.getItem('coreOsSkinEnabled')==='true') localStorage.setItem('coreOsActiveSkin','crimson');
+        else if(localStorage.getItem('coreOsNeonEnabled')==='true') localStorage.setItem('coreOsActiveSkin','neon');
+    }
+    updateSkinButtons();
+    // Process purchase params FIRST so localStorage timers are set before feature engine reads them
+    var params=new URLSearchParams(location.search);
+    var purchased=null; // Phase 5: now handled by server-side flash messages
+    if(purchased){
+        var name=decodeURIComponent(purchased);
+        if(name==='Focus Shield')  localStorage.setItem('coreOsFocusEnd',String(Date.now()+2*60*60*1000));
+        if(name==='XP Overdrive')  localStorage.setItem('coreOsXPOverdriveEnd',String(Date.now()+24*60*60*1000));
+    }
+    startOverdriveCardTimer();
+    runFeatureEngine();
+    if(purchased){
+        var toastName=decodeURIComponent(purchased);
+        var toastIcons={'Neural Booster':'🧠','Cyberware Skin':'🎨','Neon Matrix Skin':'💚','Database Relic':'📊','Focus Shield':'🛡️','Memory Crystal':'💾','Streak Guardian':'⏳','XP Overdrive':'⚡','Habit Forge':'🔨','Task Amnesty':'🗑️','Credit Insurance':'🔒','Void Skin':'🌑','Solar Skin':'☀️'};
+        var icon=toastIcons[toastName]||'⚡';
+        showToast(icon+' '+toastName+' ACQUIRED!','success');
+        history.replaceState({},'','/shop');
+    }
+    if(params.get('insufficient')){showToast('❌ INSUFFICIENT CREDITS','error');history.replaceState({},'','/shop');}
+});
+</script>
+
+    <!-- ── CORE OS Flash Toasts ─────────────────────────────────────────── -->
+    <div id="flash-data" style="display:none"
+         data-messages="{{ get_flashed_messages(with_categories=true) | tojson | e }}">
+    </div>
+    <div id="toast-container" style="
+        position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+        z-index:99999; display:flex; flex-direction:column; gap:10px;
+        align-items:center; pointer-events:none;
+    "></div>
+    <script>
+    (function(){
+        var raw = document.getElementById('flash-data');
+        if(!raw) return;
+        var msgs;
+        try { msgs = JSON.parse(raw.dataset.messages || '[]'); } catch(e){ return; }
+        if(!msgs.length) return;
+        var COLORS = {
+            success: { border:'#10b981', text:'#6ee7b7', icon:'✓' },
+            error:   { border:'#f43f5e', text:'#fda4af', icon:'✕' },
+            info:    { border:'#6366f1', text:'#a5b4fc', icon:'ℹ' },
+            warning: { border:'#fbbf24', text:'#fcd34d', icon:'⚠' },
+        };
+        var container = document.getElementById('toast-container');
+        msgs.forEach(function(pair, idx){
+            var cat = pair[0] || 'info';
+            var msg = pair[1] || '';
+            var c   = COLORS[cat] || COLORS.info;
+            var div = document.createElement('div');
+            div.style.cssText = [
+                'background:rgba(5,8,18,0.97)',
+                'border:1px solid ' + c.border,
+                'border-radius:10px',
+                'padding:10px 18px',
+                'font-family:Share Tech Mono,monospace',
+                'font-size:0.72rem',
+                'color:' + c.text,
+                'letter-spacing:0.5px',
+                'box-shadow:0 4px 24px rgba(0,0,0,0.5)',
+                'display:flex',
+                'align-items:center',
+                'gap:10px',
+                'max-width:480px',
+                'pointer-events:auto',
+                'cursor:pointer',
+                'animation:toastSlide 0.3s ease',
+                'opacity:1',
+                'transition:opacity 0.4s ease',
+            ].join(';');
+            div.innerHTML = '<span style="font-size:1rem">' + c.icon + '</span><span>' + msg + '</span>';
+            div.onclick = function(){ div.style.opacity='0'; setTimeout(function(){ div.remove(); }, 400); };
+            container.appendChild(div);
+            var delay = 4000 + idx * 300;
+            setTimeout(function(){ div.style.opacity='0'; setTimeout(function(){ div.remove(); }, 400); }, delay);
+        });
+        if(!document.getElementById('toast-anim-style')){
+            var s = document.createElement('style');
+            s.id = 'toast-anim-style';
+            s.textContent = '@keyframes toastSlide{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}';
+            document.head.appendChild(s);
+        }
+    })();
+    </script>
+
+</body>
+</html>
