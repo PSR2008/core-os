@@ -63,27 +63,29 @@ def run_production_checks() -> None:
               'memory:// only works with a single process. '
               'Use Redis for production: redis://localhost:6379/0')
 
-    # 4. SMTP credentials — required if password reset is enabled
-    # Password reset is always enabled (routes exist), so SMTP must be configured.
-    mail_server = os.environ.get('MAIL_SERVER', '')
-    mail_user   = os.environ.get('MAIL_USERNAME', '')
-    mail_pass   = os.environ.get('MAIL_PASSWORD', '')
+        # 4. SMTP credentials — only required if password reset is enabled
+    disable_password_reset = os.environ.get('DISABLE_PASSWORD_RESET', '').strip().lower() == 'true'
 
-    if not mail_server:
-        _fail('MAIL_SERVER',
-              'Required for password reset emails. '
-              'Example: smtp.gmail.com — '
-              'Or set DISABLE_PASSWORD_RESET=true to skip this check.')
+    if not disable_password_reset:
+        mail_server = os.environ.get('MAIL_SERVER', '')
+        mail_user   = os.environ.get('MAIL_USERNAME', '')
+        mail_pass   = os.environ.get('MAIL_PASSWORD', '')
 
-    if not mail_user:
-        _fail('MAIL_USERNAME',
-              'Required for SMTP authentication. '
-              'Set to your sending email address.')
+        if not mail_server:
+            _fail('MAIL_SERVER',
+                  'Required for password reset emails. '
+                  'Example: smtp.gmail.com — '
+                  'Or set DISABLE_PASSWORD_RESET=true to skip this check.')
 
-    if not mail_pass:
-        _fail('MAIL_PASSWORD',
-              'Required for SMTP authentication. '
-              'For Gmail, use an App Password from myaccount.google.com/apppasswords')
+        if not mail_user:
+            _fail('MAIL_USERNAME',
+                  'Required for SMTP authentication. '
+                  'Set to your sending email address.')
+
+        if not mail_pass:
+            _fail('MAIL_PASSWORD',
+                  'Required for SMTP authentication. '
+                  'For Gmail, use an App Password from myaccount.google.com/apppasswords')
 
 
 def run_development_checks() -> None:
