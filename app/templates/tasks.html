@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Task Matrix | CORE OS</title>
             <script>
@@ -261,23 +262,43 @@
             if(!id) return;
             var card = document.getElementById('tc-'+id);
             if(card) card.style.opacity = '1';
-            // Phase 5: drag-to-done uses POST via fetch (was unsafe GET)
+            var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            var token = csrfMeta ? csrfMeta.getAttribute('content') : '';
+            // drag-to-done: POST to complete_task endpoint
             if(status === 'done'){
-                var csrf = document.querySelector('meta[name="csrf-token"]');
-                var token = csrf ? csrf.getAttribute('content') : '';
                 fetch(COREOS_URLS.completeTask + id, {
                     method: 'POST',
                     headers: {'Content-Type':'application/x-www-form-urlencoded', 'X-CSRFToken': token},
                     body: 'csrf_token=' + encodeURIComponent(token)
-                }).then(function(){ window.location.href=COREOS_URLS.tasksConfetti; });
+                }).then(function(r){
+                    if(r.ok){ window.location.href = COREOS_URLS.tasksConfetti; }
+                    else{
+                        if(card){ card.style.opacity='1'; }
+                        alert('Error completing task. Please try again.');
+                    }
+                }).catch(function(){
+                    if(card){ card.style.opacity='1'; }
+                    alert('Network error. Please try again.');
+                });
                 return;
             }
+            // drag-to-todo or drag-to-inprogress: POST to update_task_status
             fetch(COREOS_URLS.updateStatus + id, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': token
+                },
                 body: JSON.stringify({status: status})
             }).then(function(r){ return r.json(); }).then(function(d){
-                if(d.ok) window.location.reload();
+                if(d.ok){ window.location.reload(); }
+                else{
+                    if(card){ card.style.opacity='1'; }
+                    alert('Error updating task status. Please try again.');
+                }
+            }).catch(function(){
+                if(card){ card.style.opacity='1'; }
+                alert('Network error. Please try again.');
             });
         }
         document.addEventListener('dragend', function(){

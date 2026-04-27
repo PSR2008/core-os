@@ -88,8 +88,8 @@
     </div>
     <form method="POST" action="{{ url_for('auth.logout') }}" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="disconnect-btn">⏻ DISCONNECT</button></form>
 </nav>
+<button class="menu-toggle" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
 <main class="main-content">
-    <button class="menu-toggle" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
     <div class="page-header">
         <h1>Habit Sync</h1>
         <p>[ REWIRING_NEURAL_PATHWAYS // {{ habits|length }} SEQUENCES_ACTIVE ]</p>
@@ -159,7 +159,7 @@
                     {% endfor %}
                 </div>
             </div>
-            <form method="POST" action="{{ url_for('habits.delete_habit', id=h.id) }}" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" style="margin-top:0.8rem;">[ TERMINATE_SEQUENCE ]</button></form>
+            <form method="POST" action="{{ url_for('habits.delete_habit', id=h.id) }}" style="display:block; margin-top:0.8rem; padding-top:0.8rem; border-top:1px solid rgba(244,63,94,0.12);"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="terminate-btn" onclick="return confirm('Terminate this sequence permanently?');">⚠ [ TERMINATE_SEQUENCE ]</button></form>
         </div>
         {% endfor %}
     </div>

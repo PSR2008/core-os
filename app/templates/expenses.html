@@ -66,8 +66,8 @@
     </div>
     <form method="POST" action="{{ url_for('auth.logout') }}" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="disconnect-btn">⏻ DISCONNECT</button></form>
 </nav>
+<button class="menu-toggle" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
 <main class="main-content">
-    <button class="menu-toggle" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
     <div class="page-header">
         <h1>Wallet</h1>
         <p>[ LOGGING_EXPENSES // CREDIT_MONITOR_ACTIVE ]</p>
