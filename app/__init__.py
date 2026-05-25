@@ -89,9 +89,13 @@ def create_app(cfg=None):
     from app.routes.shop import shop_bp
     from app.routes.profile import profile_bp
     from app.routes.api import api_bp
+    from app.routes.api_auth import api_auth_bp
     from app.routes.share import share_bp
     from app.routes.growth import growth_bp
     from app.routes.legal import legal_bp
+
+    csrf.exempt(api_bp)
+    csrf.exempt(api_auth_bp)
 
     for bp in [
         auth_bp,
@@ -104,6 +108,7 @@ def create_app(cfg=None):
         shop_bp,
         profile_bp,
         api_bp,
+        api_auth_bp,
         share_bp,
         growth_bp,
         legal_bp,
