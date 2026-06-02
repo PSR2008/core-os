@@ -62,6 +62,10 @@ class User(UserMixin, db.Model):
                                     lazy='dynamic',    cascade='all, delete-orphan')
     achievements  = db.relationship('UserAchievement', back_populates='user',
                                     lazy='dynamic',    cascade='all, delete-orphan')
+    attendance_subjects = db.relationship('AttendanceSubject', back_populates='user',
+                                          lazy='dynamic', cascade='all, delete-orphan')
+    attendance_entries  = db.relationship('AttendanceEntry', back_populates='user',
+                                          lazy='dynamic', cascade='all, delete-orphan')
     referrals     = db.relationship('User', foreign_keys=[referred_by_id],
                                     primaryjoin='User.referred_by_id == User.id',
                                     backref=db.backref('referrer', remote_side='User.id'),

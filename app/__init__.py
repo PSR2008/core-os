@@ -188,6 +188,7 @@ def _init_db(flask_app: Flask) -> None:
         return
 
     if _tables_exist():
+        _ensure_optional_tables(flask_app)
         return
 
     if env == 'production':
@@ -212,6 +213,23 @@ def _init_db(flask_app: Flask) -> None:
         flask_app.logger.info('Schema created successfully via db.create_all()')
     except Exception as exc:
         flask_app.logger.error('db.create_all() failed: %s', exc)
+        raise
+
+
+def _ensure_optional_tables(flask_app: Flask) -> None:
+    """Create newly added tables when an older deployed database already exists."""
+    try:
+        inspector = sa_inspect(db.engine)
+        required = {'attendance_subjects', 'attendance_entries'}
+        missing = [name for name in required if not inspector.has_table(name)]
+        if missing:
+            flask_app.logger.warning(
+                'Optional tables missing (%s) - creating missing schema.',
+                ', '.join(missing),
+            )
+            db.create_all()
+    except Exception as exc:
+        flask_app.logger.error('Optional table check failed: %s', exc)
         raise
 
 

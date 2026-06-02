@@ -9,6 +9,7 @@ from app.models.expense     import Expense     # noqa: F401
 from app.models.wellness    import WellnessLog # noqa: F401
 from app.models.shop        import ShopItem, UserInventory  # noqa: F401
 from app.models.achievement import Achievement, UserAchievement  # noqa: F401
+from app.models.attendance  import AttendanceSubject, AttendanceEntry  # noqa: F401
 
 from app.models.feedback import UserFeedback  # noqa: F401
 from app.models.growth   import GrowthEvent   # noqa: F401

@@ -1,9 +1,11 @@
 import re
+from datetime import datetime
 
 from flask import Blueprint, jsonify, request, session
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app.extensions import db, limiter
+from app.models.attendance import AttendanceEntry, AttendanceSubject
 from app.models.user import User
 
 api_auth_bp = Blueprint('api_auth', __name__)
@@ -35,6 +37,37 @@ def _user_payload(user):
         'referral_code': user.referral_code or '',
         'onboarding_complete': user.onboarding_complete,
     }
+
+
+def _parse_iso_datetime(value, fallback=None):
+    if not value:
+        return fallback
+    try:
+        return datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except ValueError:
+        return fallback
+
+
+def _parse_iso_date(value):
+    parsed = _parse_iso_datetime(value)
+    return parsed.date() if parsed else datetime.utcnow().date()
+
+
+def _subject_from_payload(subject, data):
+    subject.name = str(data.get('name', subject.name or 'Subject')).strip()[:120] or 'Subject'
+    subject.faculty = str(data.get('faculty', subject.faculty or 'Faculty')).strip()[:120] or 'Faculty'
+    subject.minimum_percentage = max(
+        1.0,
+        min(100.0, float(data.get('minimum_percentage', subject.minimum_percentage or 75.0))),
+    )
+    subject.max_classes_per_day = max(
+        1,
+        min(8, int(data.get('max_classes_per_day', subject.max_classes_per_day or 1))),
+    )
+    subject.color_value = int(data.get('color_value', subject.color_value or 0xFF10B981))
+    subject.created_at = _parse_iso_datetime(data.get('created_at'), subject.created_at)
+    subject.updated_at = _parse_iso_datetime(data.get('updated_at'), datetime.utcnow())
+    return subject
 
 
 @api_auth_bp.route('/api/v1/auth/login', methods=['POST'])
@@ -114,6 +147,24 @@ def api_auth_status():
     if current_user.is_authenticated:
         return _ok({'authenticated': True, 'user': _user_payload(current_user)})
     return _ok({'authenticated': False, 'user': None})
+
+
+@api_auth_bp.route('/api/v1/me', methods=['GET'])
+@login_required
+def api_me():
+    return _ok(_user_payload(current_user))
+
+
+@api_auth_bp.route('/api/v1/me', methods=['DELETE'])
+@login_required
+@limiter.limit('6 per hour')
+def api_delete_me():
+    user = current_user._get_current_object()
+    logout_user()
+    session.clear()
+    db.session.delete(user)
+    db.session.commit()
+    return _ok({'deleted': True})
 
 
 @api_auth_bp.route('/api/v1/dashboard', methods=['GET'])
@@ -234,3 +285,116 @@ def api_shop_buy():
         return _err(message)
 
     return _ok({'purchased': True, 'message': message, 'balance': current_user.balance})
+
+
+@api_auth_bp.route('/api/v1/attendance', methods=['GET'])
+@login_required
+def api_attendance():
+    subjects = AttendanceSubject.query.filter_by(user_id=current_user.id).order_by(
+        AttendanceSubject.created_at.desc(),
+    ).all()
+    entries = AttendanceEntry.query.filter_by(user_id=current_user.id).order_by(
+        AttendanceEntry.date.desc(),
+        AttendanceEntry.created_at.desc(),
+    ).all()
+    return _ok({
+        'subjects': [subject.to_dict() for subject in subjects],
+        'entries': [entry.to_dict() for entry in entries],
+    })
+
+
+@api_auth_bp.route('/api/v1/attendance/subjects', methods=['POST'])
+@login_required
+@limiter.limit('60 per hour')
+def api_add_attendance_subject():
+    data = request.get_json(silent=True) or {}
+    subject_id = str(data.get('id', '')).strip()
+    if not subject_id:
+        return _err('subject id is required')
+    existing = AttendanceSubject.query.filter_by(
+        user_id=current_user.id,
+        id=subject_id,
+    ).first()
+    subject = existing or AttendanceSubject(id=subject_id, user_id=current_user.id)
+    _subject_from_payload(subject, data)
+    db.session.add(subject)
+    db.session.commit()
+    return _ok(subject.to_dict()), 201 if not existing else 200
+
+
+@api_auth_bp.route('/api/v1/attendance/subjects/<subject_id>', methods=['PUT'])
+@login_required
+def api_update_attendance_subject(subject_id):
+    subject = AttendanceSubject.query.filter_by(
+        user_id=current_user.id,
+        id=subject_id,
+    ).first()
+    if not subject:
+        return _err('Subject not found.', 404)
+    data = request.get_json(silent=True) or {}
+    _subject_from_payload(subject, data)
+    db.session.commit()
+    return _ok(subject.to_dict())
+
+
+@api_auth_bp.route('/api/v1/attendance/subjects/<subject_id>', methods=['DELETE'])
+@login_required
+def api_delete_attendance_subject(subject_id):
+    subject = AttendanceSubject.query.filter_by(
+        user_id=current_user.id,
+        id=subject_id,
+    ).first()
+    if not subject:
+        return _err('Subject not found.', 404)
+    db.session.delete(subject)
+    db.session.commit()
+    return _ok({'deleted': True})
+
+
+@api_auth_bp.route('/api/v1/attendance/entries', methods=['POST'])
+@login_required
+@limiter.limit('240 per hour')
+def api_add_attendance_entry():
+    data = request.get_json(silent=True) or {}
+    entry_id = str(data.get('id', '')).strip()
+    subject_id = str(data.get('subject_id', '')).strip()
+    status = str(data.get('status', 'present')).strip().lower()
+    if status == 'noclass':
+        status = 'no_class'
+    if status not in {'present', 'absent', 'no_class'}:
+        return _err('Invalid attendance status.')
+    if not entry_id or not subject_id:
+        return _err('entry id and subject id are required')
+    subject = AttendanceSubject.query.filter_by(
+        user_id=current_user.id,
+        id=subject_id,
+    ).first()
+    if not subject:
+        return _err('Subject not found.', 404)
+
+    existing = AttendanceEntry.query.filter_by(
+        user_id=current_user.id,
+        id=entry_id,
+    ).first()
+    entry = existing or AttendanceEntry(id=entry_id, user_id=current_user.id)
+    entry.subject_id = subject_id
+    entry.status = status
+    entry.date = _parse_iso_date(data.get('date'))
+    entry.created_at = _parse_iso_datetime(data.get('created_at'), entry.created_at)
+    db.session.add(entry)
+    db.session.commit()
+    return _ok(entry.to_dict()), 201 if not existing else 200
+
+
+@api_auth_bp.route('/api/v1/attendance/entries/<entry_id>', methods=['DELETE'])
+@login_required
+def api_delete_attendance_entry(entry_id):
+    entry = AttendanceEntry.query.filter_by(
+        user_id=current_user.id,
+        id=entry_id,
+    ).first()
+    if not entry:
+        return _err('Entry not found.', 404)
+    db.session.delete(entry)
+    db.session.commit()
+    return _ok({'deleted': True})
