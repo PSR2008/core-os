@@ -8,6 +8,7 @@ Three environments:
                Validation is enforced by startup_checks.py, not here.
 """
 import os
+from datetime import timedelta
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -19,7 +20,10 @@ class Config:
     WTF_CSRF_TIME_LIMIT      = 3600              # CSRF tokens valid 1 hour
     SESSION_COOKIE_HTTPONLY  = True
     SESSION_COOKIE_SAMESITE  = 'Lax'
-    PERMANENT_SESSION_LIFETIME = 86400 * 14      # 14-day remember-me
+    PERMANENT_SESSION_LIFETIME = timedelta(days=365)
+    REMEMBER_COOKIE_DURATION = timedelta(days=365)
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES      = False
     MAX_CONTENT_LENGTH = 1 * 1024 * 1024         # 1 MB request body cap
@@ -33,6 +37,7 @@ class DevelopmentConfig(Config):
     DEBUG                 = True
     TESTING               = False
     SESSION_COOKIE_SECURE = False    # allow http:// in local dev
+    REMEMBER_COOKIE_SECURE = False
 
     SQLALCHEMY_DATABASE_URI = (
         os.environ.get('DATABASE_URL')
@@ -49,6 +54,7 @@ class ProductionConfig(Config):
     DEBUG                 = False
     TESTING               = False
     SESSION_COOKIE_SECURE = True     # HTTPS-only cookie
+    REMEMBER_COOKIE_SECURE = True
     PREFERRED_URL_SCHEME  = 'https'
 
     # PostgreSQL connection pool — invalid for SQLite, only used here
